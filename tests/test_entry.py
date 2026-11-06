@@ -49,7 +49,7 @@ class EntryTests(unittest.TestCase):
         schema = self.ctx.tools[0]['schema']
         self.assertEqual(schema['name'], 'daily_edition')
         self.assertEqual(schema['parameters']['type'], 'object')
-        self.assertEqual(schema['parameters']['properties']['action']['enum'], ['print', 'diff', 'sources'])
+        self.assertEqual(schema['parameters']['properties']['action']['enum'], ['print', 'diff', 'sources', 'print_paper'])
         self.assertIn('description', schema)
 
     def test_sources_action_reads_saved_state(self):

@@ -58,7 +58,7 @@ function Byline({ story, saved, onSave }) {
     onSave ? el(SaveButton, { story, saved, onSave }) : null)
 }
 
-function Masthead({ edition, loading, onRefresh, onStyle, styling, personaName }) {
+function Masthead({ edition, loading, onRefresh, onStyle, styling, personaName, onPrint, printing }) {
   return el('header', {
     style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', borderBottom: '2px solid var(--ui-stroke-secondary)', paddingBottom: 12, gap: 10 }
   },
@@ -71,6 +71,10 @@ function Masthead({ edition, loading, onRefresh, onStyle, styling, personaName }
       personaName ? el('button', {
         type: 'button', onClick: onStyle, style: button, disabled: styling || loading
       }, styling ? 'Styling...' : `Style as ${personaName}`) : null,
+      el('button', {
+        type: 'button', onClick: onPrint, style: button, disabled: printing || loading || !(edition && edition.storyCount),
+        title: 'Render this edition as a one-page sheet and send it to the printer'
+      }, printing ? 'Printing on paper...' : 'Print the paper'),
       el('button', { type: 'button', onClick: onRefresh, style: button, disabled: loading }, loading ? 'Printing...' : 'Print new edition')))
 }
 
@@ -202,6 +206,7 @@ export function Edition({ ctx }) {
   const [styleNote, setStyleNote] = useState('')
   const [standfirst, setStandfirst] = useState(() => (ctx.storage.get('lastEdition', {}) || {}).standfirst || '')
   const [styling, setStyling] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const size = scale[prefs.textSize] || 1
 
   const personaName = (roster.find(entry => entry.id === prefs.persona) || {}).name || ''
@@ -438,6 +443,17 @@ export function Edition({ ctx }) {
     } finally { setStyling(false) }
   }
 
+  // Paper, not just pixels: the same edition rendered to one sheet and handed to CUPS.
+  const printPaper = async () => {
+    if (!edition || !edition.storyCount) return
+    setPrinting(true); setNotice(''); setErrors([])
+    try {
+      const result = await ctx.rest('/print', { method: 'POST', timeoutMs: 150000, body: { max_pages: 1 } })
+      if (result.error) { setErrors([`Printing failed: ${result.error}`]); return }
+      setNotice(`Sent ${result.stories} stories to ${result.printer || 'the default printer'} — job ${result.job} (${result.pages} page${result.pages === 1 ? '' : 's'}).`)
+    } catch (error) { setErrors([String(error)]) } finally { setPrinting(false) }
+  }
+
   const stories = (edition && edition.stories) || []
   const unread = stories.filter(item => !read.includes(item.url))
   const needle = query.trim().toLowerCase()
@@ -504,7 +520,8 @@ export function Edition({ ctx }) {
   return el('main', { style: { overflowY: 'auto', height: '100%', padding: '32px clamp(18px, 5vw, 70px)', maxWidth: 1100, margin: 'auto' } },
     jsx(Masthead, {
       edition, loading, onRefresh: () => setRevision(x => x + 1),
-      onStyle: styleEdition, styling, personaName: edition && edition.storyCount ? personaName : ''
+      onStyle: styleEdition, styling, personaName: edition && edition.storyCount ? personaName : '',
+      onPrint: printPaper, printing
     }),
     el('p', { style: { ...muted, fontSize: 13, margin: '10px 0 0' } },
       interests.length

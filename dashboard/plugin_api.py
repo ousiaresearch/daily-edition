@@ -23,6 +23,8 @@ personas = _load('daily_edition_personas', 'personas.py')
 model = _load('daily_edition_model', 'model_client.py')
 reader = _load('daily_edition_reader', 'reader.py')
 store = _load('daily_edition_state', 'state.py')
+engine = _load('daily_edition_compose', 'compose.py')
+press = _load('daily_edition_print', 'print.py')
 
 
 class OpmlBody(BaseModel):
@@ -47,6 +49,13 @@ class StateBody(BaseModel):
     watchwords: list[str] | None = None
     persona: str | None = None
     archive: list[dict] | None = None
+
+
+class PrintBody(BaseModel):
+    printer: str = ''
+    dry_run: bool = False
+    max_pages: int = 1
+    max_stories: int = 20
 
 
 @router.get('/feed')
@@ -108,6 +117,24 @@ def put_state(body: StateBody = Body(...)):
         return store.write(body.model_dump(exclude_none=True))
     except Exception as exc:
         return {'error': str(exc) or 'Could not save settings'}
+
+
+@router.post('/print')
+def print_paper(body: PrintBody = Body(...)):
+    """Render the saved edition to a printable page and, unless dry_run, send it to a printer."""
+    try:
+        saved = store.read()
+        edition, standfirst, errors = engine.compose(saved, max_stories=body.max_stories or 20)
+        edition['standfirst'] = standfirst.get('line', '')
+        result = press.print_edition(
+            edition, printer=body.printer or '', dry_run=bool(body.dry_run),
+            max_pages=max(1, min(int(body.max_pages or 1), 4)),
+            source_urls=(saved.get('feeds') or []),
+        )
+        result['composeErrors'] = errors
+        return result
+    except Exception as exc:
+        return {'ok': False, 'error': str(exc) or 'Could not print the edition'}
 
 
 @router.get('/personas')

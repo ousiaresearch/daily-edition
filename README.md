@@ -50,11 +50,29 @@ Click an interest chip to stop following it. **Print new edition** reloads every
 
 The same paper is available to the agent, composed by the same model in Python (`dashboard/edition.py`), so a cron job needs no renderer:
 
-- **Tool:** `daily_edition` — `action: print` returns the front page as text; `action: diff` returns only what changed; `action: sources` lists the subscriptions. Optional `interests` and `max_stories` override the saved settings for that call only.
-- **Command:** `/edition`, `/edition diff`, `/edition sources`.
+- **Tool:** `daily_edition` — `action: print` returns the front page as text; `action: diff` returns only what changed; `action: sources` lists the subscriptions; `action: print_paper` renders the same edition as a one-page PDF and sends it to a printer (with `dry_run: true` for a preview). Optional `interests` and `max_stories` override the saved settings for that call only.
+- **Command:** `/edition`, `/edition diff`, `/edition sources`, `/edition paper`, `/edition preview`.
 - **Ritual:** the bundled `daily-edition` skill carries the tested `hermes cron create` line for a 07:00 weekday print delivered to chat, plus the failure modes worth naming.
 
 The page mirrors its settings to `$HERMES_HOME/daily-edition/state.json` (0600, atomic replace) so the tool can see them: interests, feeds, mutes, watchwords, the chosen voice and past-edition headlines and links — never article bodies. The JS and Python edition models are held together by a parity test that runs both against shared fixtures.
+
+## On paper
+
+The **Print the paper** button turns the edition into a sheet of paper: the same stories, rendered
+as one Letter page with a masthead, a lead and a footer naming the sources, then sent to a printer
+through CUPS. `action: print_paper` does the same from chat, and `/edition preview` renders the page
+without printing it.
+
+- **One page, or fewer stories.** If the page runs long, the last stories are dropped and the sheet
+  is rendered again — up to four attempts. The printed count is reported, so nothing disappears
+  silently.
+- **No printer is not a dead end.** The page is always left in `$HERMES_HOME/daily-edition/prints/`
+  as HTML, PDF (when a headless browser is installed) and plain text, so it can be printed by hand.
+- **Nothing is fetched to print.** The renderer draws only the edition it is given, escapes every
+  headline, and never follows a link.
+
+The contract other plugins can adopt is in [PRINT-PIPELINE.md](PRINT-PIPELINE.md): input shape,
+four steps, fit rule, failure semantics and the security boundaries around `lp`.
 
 ## Personalisation
 
@@ -107,7 +125,7 @@ hermes plugins doctor "$PWD" --ci
 
 ## Known limitations
 
-No authenticated feeds, JSON Feed parsing, automatic background polling, or image and figure rendering in the reader (article text only, with image alt text preserved). Feed descriptions may be truncated and dates are displayed as supplied. A feed larger than 2 MB is refused rather than parsed partially. On total backend failure the last composed edition is shown with an *as of* stamp, but stories are not cached individually. Desktop and backend enablement are separate; backend routes need a gateway restart. Desktop layout and end-to-end behaviour should be verified in a real Hermes Desktop session before release.
+No authenticated feeds, JSON Feed parsing, automatic background polling, or image and figure rendering in the reader (article text only, with image alt text preserved). Feed descriptions may be truncated and dates are displayed as supplied. A feed larger than 2 MB is refused rather than parsed partially. On total backend failure the last composed edition is shown with an *as of* stamp, but stories are not cached individually. Printing needs a CUPS queue and, for a PDF, a local headless browser; without a browser the plain-text rendition is printed instead. Desktop and backend enablement are separate; backend routes need a gateway restart. Desktop layout and end-to-end behaviour should be verified in a real Hermes Desktop session before release.
 
 Discovery reads `<link rel="alternate">` and, failing that, six conventional paths. Sites that only publish a human "RSS" page without advertising a feed (ars technica's homepage is one) return no candidates — paste their feed URL directly. Discovery downloads at most 512 KB of a page.
 

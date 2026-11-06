@@ -38,8 +38,19 @@ SCHEMA = {
         'properties': {
             'action': {
                 'type': 'string',
-                'enum': ['print', 'diff', 'sources'],
-                'description': 'What to return. Default: print.',
+                'enum': ['print', 'diff', 'sources', 'print_paper'],
+                'description': (
+                    'What to return. Default: print (the front page as text). print_paper renders '
+                    'the edition as a one-page PDF and sends it to a printer.'
+                ),
+            },
+            'printer': {
+                'type': 'string',
+                'description': 'CUPS destination for print_paper. Omit to use the default printer.',
+            },
+            'dry_run': {
+                'type': 'boolean',
+                'description': 'With print_paper: render the page but do not print it.',
             },
             'interests': {
                 'type': 'array',
@@ -67,6 +78,10 @@ def _state():
 
 def _compose():
     return _load('daily_edition_compose_entry', 'compose.py')
+
+
+def _press():
+    return _load('daily_edition_print_entry', 'print.py')
 
 
 def _clean_interests(value):
@@ -115,6 +130,25 @@ def _tool(args):
         interests = _clean_interests(args.get('interests'))
         max_stories = int(args.get('max_stories') or 20)
         max_stories = max(1, min(max_stories, 40))
+
+        if action in ('print_paper', 'paper'):
+            engine = _compose()
+            press = _press()
+            current = _state().read()
+            edition, standfirst, errors = engine.compose(current, max_stories=max_stories,
+                                                         interests=interests)
+            edition['standfirst'] = standfirst.get('line', '')
+            if edition['storyCount']:
+                summary = engine.edition_summary(edition)
+                _state().write({'archive': engine.merge_archive(current.get('archive') or [], summary, 7)})
+            result = press.print_edition(
+                edition, printer=str(args.get('printer') or ''),
+                dry_run=bool(args.get('dry_run')), source_urls=current.get('feeds') or [],
+            )
+            result.update({'action': 'print_paper', 'errors': errors,
+                           'standfirst': standfirst.get('line', '')})
+            return json.dumps(result, ensure_ascii=False)
+
         if action == 'diff':
             engine = _compose()
             current = _state().read()
@@ -144,13 +178,24 @@ def _tool(args):
 
 
 def _command(raw_args):
-    argument = ' '.join(str(raw_args or '').split()).lower()
-    if argument in ('sources', 'sources?'):
+    argument = ' '.join(str(raw_args or '').split())
+    lowered = argument.lower()
+    if lowered in ('sources', 'sources?'):
         return json.loads(_tool({'action': 'sources'}))['text']
-    if argument in ('diff', 'what changed'):
+    if lowered in ('diff', 'what changed'):
         payload = json.loads(_tool({'action': 'diff'}))
         return payload.get('error') or '%s\nNo. %s · %s stories' % (
             payload['text'], payload['number'], payload['storyCount'])
+    if lowered in ('paper', 'print', 'preview'):
+        payload = json.loads(_tool({'action': 'print_paper', 'dry_run': lowered == 'preview'}))
+        if payload.get('error'):
+            return 'Daily Edition: %s' % payload['error']
+        pages = payload.get('pages') or 0
+        fact = '%s page%s, %s stories' % (pages, '' if pages == 1 else 's', payload.get('stories') or 0)
+        if payload.get('dryRun'):
+            return 'Rendered the paper to %s (%s). Nothing was sent to a printer.' % (
+                payload.get('pdf') or payload.get('text'), fact)
+        return 'Printed to %s — job %s (%s).' % (payload.get('printer'), payload.get('job'), fact)
     payload = json.loads(_tool({'action': 'print'}))
     if payload.get('error'):
         return 'Daily Edition: %s' % payload['error']

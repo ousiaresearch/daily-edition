@@ -50,6 +50,31 @@ hermes cron create "0 7 * * 1-5" \
 
 A weekday print at 07:00 and a Sunday `0 9 * * 0` "week in review" run are the two useful defaults.
 
+## Printing it on paper
+
+`daily_edition` with `action: "print_paper"` composes, renders and submits the edition as one Letter
+page. `dry_run: true` renders without printing and returns the PDF path — always offer that first
+when the user has not printed before.
+
+- The pipeline is described in `PRINT-PIPELINE.md` in the plugin directory: HTML → headless browser →
+  PDF → `lp`, with the last stories dropped until the page fits.
+- A printer problem is reported, never fatal: the page is still left in
+  `$HERMES_HOME/daily-edition/prints/` as HTML, PDF and text.
+- `lpstat -p` must list a queue. If it lists none, say so and point at the files rather than
+  pretending a job was sent.
+- Colour, images and QR codes are deliberately out of scope; it is a reading copy.
+
+For a weekday paper on the breakfast table, keep the chat delivery and let the print job do the rest:
+
+```bash
+hermes cron create "0 7 * * 1-5" \
+  "Print today's Daily Edition on paper: call the daily_edition tool with action=print_paper. If it reports a printer error, say which printer is missing and where the PDF was left." \
+  --name "Daily Edition — weekday print" \
+  --deliver local \
+  --skill daily-edition \
+  --pin
+```
+
 ## Reading it in conversation
 
 - "What's in today's paper?" → `daily_edition` with `action=print`.
