@@ -42,9 +42,19 @@ Rules the renderer enforces, whatever the caller passes:
    and a footer carrying the edition number, date and sources. No external CSS, fonts or images.
 2. **Paginate** — HTML → PDF through a local headless browser (Chrome, Chromium or Edge). The
    browser path is discoverable (`DAILY_EDITION_CHROME`) and never downloaded.
-3. **Fit** — the page is meant to be **one sheet**. If the PDF is longer than `max_pages`, drop
-   the tail stories (about 20% of them) and render again, up to five attempts, so the submitted PDF
-   always matches the content that was measured. A page that still runs long is submitted rather than silently truncated.
+3. **Typeset and fit** — the page is meant to be **one sheet that looks like a newspaper**, so two
+   things are fitted, in this order:
+   - **Fill.** The page measures itself (`data-fill` = document height ÷ printable height, read back
+     through the headless browser) and the whole sheet is enlarged in 15% steps until it covers
+     about 94% of the page, so a quiet news day sets in larger type instead of leaving half the
+     sheet blank.
+   - **Pages.** If the enlargement overflows onto a second page, one bisection step is taken between
+     the largest fitting scale and the overflow, and the loop settles on the largest scale that still
+     fits. Only when the base size overflows are stories dropped — tail first, about 20% at a time.
+     The count is reported, and a page that still runs long is submitted rather than silently
+     truncated.
+   Every attempt renders to its own PDF; the file finally submitted is a copy of the attempt that was
+   measured, never a path a later render has overwritten.
 4. **Submit** — `lp` with an **argument array** and a printer name validated against the local
    queue list. No `shell=True`, no interpolation, no printer discovered from the network.
 
@@ -64,9 +74,12 @@ Response:
 { "ok": true, "dryRun": false, "pages": 1, "stories": 9,
   "printer": "Office", "job": "Office-42",
   "html": "…", "pdf": "…", "text": "…",
-  "attempts": [{"stories": 9, "pages": 1, "attempt": 1}],
+  "attempts": [{"stories": 9, "pages": 1, "fill": 0.896, "scale": 1.15, "attempt": 2}],
   "error": "" }
 ```
+
+`scale` is the typographic zoom of the submitted sheet and `fill` the fraction of the page it
+covers, so a caller can tell a full sheet from a quiet one without opening the PDF.
 
 `ok:false` always carries a human `error` and still leaves the artifacts behind, so a user with no
 printer can print the file themselves.
@@ -109,10 +122,14 @@ printer can print the file themselves.
 
 ## Verification record
 
-- 14 unit tests (`tests/test_print.py`): escaping, empty edition, page counting, printer validation,
-  no-shell invocation, job-id parsing, fit loop, printer failure paths.
+- 22 unit tests (`tests/test_print.py`): escaping, no URLs printed, link dumps becoming briefs,
+  broadsheet structure, empty edition, page counting, printer validation, no-shell invocation,
+  job-id parsing, fill growth, overflow bisection, printer failure paths.
 - One real Chrome render per run when Chrome is present (`RealPdfTests`).
-- One live end-to-end dry run against `https://hnrss.org/frontpage`: 10 stories composed, rendered to
-  a **1-page** Letter PDF, no source errors.
+- One live end-to-end dry run against `https://hnrss.org/frontpage`: link-dump descriptions reduced to
+  headlines and briefs (no URLs printed), rendered to a **1-page** Letter PDF, no source errors.
+- One typeset run from a synthetic three-source edition: 9 stories, three columns, fill 89.6% at
+  scale 1.15 after one bisection, one page, no story dropped — inspected as an image: no split
+  headlines, no orphaned headings.
 - **Not verified on this machine:** actual submission through CUPS — `lpstat -p` reports no
   destinations, so the `lp` path is covered by tests with a mocked queue, not by a printed sheet.

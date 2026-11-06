@@ -58,14 +58,22 @@ The page mirrors its settings to `$HERMES_HOME/daily-edition/state.json` (0600, 
 
 ## On paper
 
-The **Print the paper** button turns the edition into a sheet of paper: the same stories, rendered
-as one Letter page with a masthead, a lead and a footer naming the sources, then sent to a printer
-through CUPS. `action: print_paper` does the same from chat, and `/edition preview` renders the page
-without printing it.
+The **Print the paper** button turns the edition into a sheet of paper: the same stories, set as a
+broadsheet — a ruled nameplate, a dateline, a lead story with deck, three columns with column rules,
+a briefs column for items with no prose, and a folio naming the edition and its sources — then sent
+to a printer through CUPS. `action: print_paper` does the same from chat, and `/edition preview`
+renders the page without printing it.
 
-- **One page, or fewer stories.** If the page runs long, the tail stories are dropped and the sheet
-  is rendered again — up to five attempts, about 20% fewer each time. The printed count is reported, so nothing disappears
-  silently.
+The sheet is typeset, not dumped:
+
+- **It fills the page.** The rendered page measures its own height and the whole sheet is enlarged in
+  steps until it covers about 94% of the Letter page, so a quiet day sets in larger type instead of
+  leaving half a sheet blank.
+- **It fits one page.** If an enlargement overflows, one bisection step finds the largest size that
+  still fits; only then are tail stories dropped (about 20% at a time). The printed count is
+  reported, so nothing disappears silently.
+- **Feed noise is removed.** URL dumps, `Article URL:` labels and vote counts are stripped; a story
+  with no usable prose prints as an entry in **In brief**, and no URL is ever printed as body text.
 - **No printer is not a dead end.** The page is always left in `$HERMES_HOME/daily-edition/prints/`
   as HTML, PDF (when a headless browser is installed) and plain text, so it can be printed by hand.
 - **Nothing is fetched to print.** The renderer draws only the edition it is given, escapes every

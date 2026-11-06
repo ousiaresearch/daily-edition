@@ -37,6 +37,46 @@ class RenderTests(unittest.TestCase):
         self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', page)
         self.assertIn('Two corridors &amp; a spur.', page)
 
+    def test_sets_a_broadsheet_not_a_link_list(self):
+        page = press.render_html(EDITION)
+        self.assertIn('class="nameplate"', page)
+        self.assertIn('column-count: 3', page)
+        self.assertIn('class="lead"', page)
+        self.assertIn('Compiled by Hermes', page)
+        self.assertIn('page 1 of 1', page)
+
+    def test_never_prints_a_url(self):
+        edition = dict(EDITION, sections=[{'source': 'Beta', 'stories': [{
+            'title': 'A story', 'publishers': ['Beta'],
+            'snippet': 'Article URL: https://example.com/a Comments URL: https://example.com/b',
+        }]}])
+        page = press.render_html(edition, source_urls=['https://alpha.example/feed'])
+        self.assertNotIn('http', page)
+        self.assertIn('alpha.example', page)
+
+    def test_a_link_dump_becomes_a_brief(self):
+        edition = dict(EDITION, sections=[{'source': 'Beta', 'stories': [{
+            'title': 'Short item', 'publishers': ['Beta'],
+            'snippet': 'Article URL: https://example.com/a Points: 12 # Comments: 3',
+        }]}])
+        page = press.render_html(edition)
+        self.assertIn('In brief', page)
+        self.assertIn('Short item', page)
+        self.assertNotIn('Points: 12', page)
+
+    def test_clean_snippet_drops_urls_labels_and_votes(self):
+        self.assertEqual(
+            press.clean_snippet('Article URL: https://x.example/a Comments URL: https://y.example/b Points: 12 # Comments: 3'),
+            '')
+        self.assertEqual(
+            press.clean_snippet('  The council   approved the plan on Tuesday.  '),
+            'The council approved the plan on Tuesday.')
+        self.assertIn('…', press.clean_snippet('A ' * 400))
+
+    def test_domain_of_strips_www_and_path(self):
+        self.assertEqual(press.domain_of('https://www.example.com/a/b?c=1'), 'example.com')
+        self.assertEqual(press.domain_of('not a url'), '')
+
     def test_has_masthead_date_and_counts(self):
         page = press.render_html(EDITION)
         self.assertIn('Daily Edition', page)
@@ -127,6 +167,7 @@ class PrintEditionTests(unittest.TestCase):
 
     def test_dry_run_writes_artifacts_and_never_calls_lp(self):
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
+             patch.object(press, 'measure_fill', return_value=0.95), \
              patch.object(press, 'submit') as submit_mock:
             result = press.print_edition(EDITION, dry_run=True)
         submit_mock.assert_not_called()
@@ -144,14 +185,48 @@ class PrintEditionTests(unittest.TestCase):
             return 2 if seen['n'] == 1 else 1
 
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
+             patch.object(press, 'measure_fill', return_value=0.95), \
              patch.object(press, 'page_count', side_effect=pages):
             result = press.print_edition(edition, dry_run=True)
         self.assertEqual(result['pages'], 1)
         self.assertEqual(result['stories'], 2)
         self.assertEqual(len(result['attempts']), 2)
 
+    def test_an_underfilled_sheet_gets_larger_type(self):
+        fills = iter([0.45, 0.95])
+
+        def fill(path):
+            return next(fills)
+
+        with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
+             patch.object(press, 'measure_fill', side_effect=fill):
+            result = press.print_edition(EDITION, dry_run=True)
+        self.assertEqual(len(result['attempts']), 2)
+        self.assertGreater(result['attempts'][-1]['scale'], 1.0)
+        page = pathlib.Path(result['html']).read_text()
+        self.assertIn('zoom: 1.15', page)
+
+    def test_an_overflowing_sheet_keeps_the_largest_fitting_type(self):
+        pages = iter([1, 2, 1, 1])
+        fills = iter([0.50, 0.95])
+
+        with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
+             patch.object(press, 'page_count', side_effect=lambda p: next(pages)), \
+             patch.object(press, 'measure_fill', side_effect=lambda p: next(fills)):
+            result = press.print_edition(dict(EDITION, stories=[1, 2, 3], storyCount=3), dry_run=True)
+        # Grew to fill the sheet, overflowed, and went back to the last attempt that fitted:
+        # no story dropped, and the submitted PDF is the one that was measured at 1 page.
+        self.assertEqual(result['stories'], 3)
+        self.assertEqual(result['pages'], 1)
+        self.assertEqual(len(result['attempts']), 3)
+        self.assertGreater(result['attempts'][1]['scale'], 1.0)
+        # The third attempt bisects between "fitted" and "overflowed" instead of oscillating.
+        self.assertLess(result['attempts'][2]['scale'], result['attempts'][1]['scale'])
+        self.assertGreater(result['attempts'][2]['scale'], result['attempts'][0]['scale'])
+
     def test_printer_problem_does_not_raise(self):
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
+             patch.object(press, 'measure_fill', return_value=0.95), \
              patch.object(press, 'available_printers', return_value=[]):
             result = press.print_edition(EDITION, dry_run=False)
         self.assertFalse(result['ok'])
