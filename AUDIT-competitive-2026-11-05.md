@@ -176,3 +176,25 @@ P0 + P1 as scoped moves reading depth 2→4, freshness 2→4, integration 3→4,
 - Competitor scores derive from pinned catalog READMEs and repo trees, not from installing and driving each plugin. Feature claims are as-good-as-their-documentation; `rss-reader`'s and `rss-lite`'s are unusually specific, `hermes-rss`'s less so.
 - Daily Edition was exercised through its own test suites, `hermes plugins validate` and `hermes plugins doctor` — **not** end-to-end in a live Hermes Desktop session with a real gateway. Its README says the same, and that gap is part of the distribution problem.
 - No usage, install or star data exists in the catalog, so "competitive" here means *feature and packaging position*, not measured adoption.
+
+---
+
+## 9. Status after v0.3.0 (2026-11-05)
+
+Implemented and verified since this audit was written:
+
+- **P0.1** in-app reading (`dashboard/reader.py` + reader pane): publisher pages reduced to typed text blocks; no publisher HTML reaches the renderer.
+- **P0.2** last-good edition persisted (`lastEdition`); a failed refresh now shows the paper with an *as of* line instead of nothing, and the stored edition is the first paint.
+- **P0.3** redirects followed up to three hops, each hop re-vetted; **OPML export** added (round-trips through the parser, refuses loopback/private URLs).
+- **P0.4** keyboard: `j`/`k`, `Enter`, `s`, `r`, `/`, `u`, `Esc`; read/saved/search/unread views with bounded state.
+- **P1.5/P1.6** `daily_edition` tool (print/diff/sources) and `/edition` command, composed by a Python port of the edition model held to the JS by a parity test; a `daily-edition` skill carries the tested cron recipe for the morning print.
+- **P1.7** `LICENSE` (MIT), git repository with a first commit, `requires_hermes: ">=0.22.5"`, `provides_tools` declared, README rewritten, `validate` and `doctor` clean.
+
+Verification actually run: 78 Python tests (including six parity tests against Node), 19 Node edition tests, the desktop render harness (empty state, composed paper, read/saved counts), `hermes plugins validate` → **passed/safe**, `hermes plugins doctor` → **1 tool, 0 hooks**, and one live end-to-end print against a real public feed (`hnrss.org/frontpage`, 3 stories composed, no source errors).
+
+Still blocked, honestly:
+
+- **Screenshots/hero images** need a live Hermes Desktop session; none were fabricated.
+- **Catalog submission** needs a public repository URL (the local repo has no remote) and a maintainer account.
+- **Electron end-to-end** behaviour (real keyboard events, reader scrolling, clipboard) is exercised only through the DOM-less harness, not a running Desktop app.
+
