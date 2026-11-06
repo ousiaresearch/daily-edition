@@ -2,7 +2,7 @@
 // Run: node --test tests/edition.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicalUrl, titleKey, similarity, buildEdition, editionDiff, mergeArchive, editionSummary } from '../desktop/edition.js';
+import { canonicalUrl, titleKey, similarity, sameStory, buildEdition, editionDiff, mergeArchive, editionSummary } from '../desktop/edition.js';
 
 const item = (title, url, snippet = '', date = '') => ({ title, url, snippet, date });
 
@@ -258,4 +258,47 @@ test('a first edition has a standfirst that says nothing changed yet', () => {
   const diff = editionDiff(edition, null);
   assert.equal(diff.first, true);
   assert.match(diff.line, /First edition/);
+});
+
+
+// ── one story, once: the same event, told differently ─────────────────────────────────────────
+const filing = (title, url, publisher) => ({ title, url, publishers: [publisher], sources: [publisher] });
+
+test('two outlets covering one event in different words are one story', () => {
+  const alpha = filing('City council approves transit plan after two-year fight', 'https://alpha.example/1', 'Alpha');
+  const beta = filing('Transit plan clears council in 7-4 vote', 'https://beta.example/2', 'Beta');
+  assert.equal(sameStory(alpha, beta), true);
+});
+
+test('a contradictory verb keeps two headlines apart', () => {
+  const approved = filing('Transit plan approved by council', 'https://alpha.example/1', 'Alpha');
+  const delayed = filing('Transit plan delayed by council', 'https://beta.example/2', 'Beta');
+  assert.equal(sameStory(approved, delayed), false);
+});
+
+test('a different year keeps two headlines apart', () => {
+  const old = filing('Harbour fees rise in 2025', 'https://alpha.example/1', 'Alpha');
+  const recent = filing('Harbour fees rise in 2026', 'https://beta.example/2', 'Beta');
+  assert.equal(sameStory(old, recent), false);
+});
+
+test('one masthead does not cross-post itself', () => {
+  const first = filing('Transit plan clears council', 'https://alpha.example/1', 'Alpha');
+  const second = filing('Transit plan vote scheduled', 'https://alpha.example/2', 'Alpha');
+  assert.equal(sameStory(first, second), false);
+});
+
+test('the duplicate pair prints once and credits both outlets', () => {
+  const edition = buildEdition({
+    sources: [
+      { url: 'https://alpha.example/feed', source: 'Alpha', items: [
+        item('City council approves transit plan after two-year fight', 'https://alpha.example/1')] },
+      { url: 'https://beta.example/feed', source: 'Beta', items: [
+        item('Transit plan clears council in 7-4 vote', 'https://beta.example/2')] }
+    ],
+    now: '2026-11-05T12:00:00Z'
+  });
+  assert.equal(edition.stories.length, 1);
+  assert.equal(edition.crossPosted, 1);
+  assert.deepEqual(edition.stories[0].publishers.sort(), ['Alpha', 'Beta']);
 });

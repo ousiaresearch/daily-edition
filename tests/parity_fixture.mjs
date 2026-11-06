@@ -1,6 +1,6 @@
 // Shared fixtures for the JS↔Python parity test: the same inputs through desktop/edition.js.
 // tests/test_edition_parity.py runs this and compares the output with dashboard/edition.py.
-import { buildEdition, editionDiff, editionSummary, mergeArchive, canonicalUrl } from '../desktop/edition.js';
+import { buildEdition, editionDiff, editionSummary, mergeArchive, canonicalUrl, sameStory } from '../desktop/edition.js';
 
 const item = (title, url, snippet = '', date = '') => ({ title, url, snippet, date });
 const sources = [
@@ -43,7 +43,34 @@ const slim = edition => ({
   printed: edition.printed
 });
 
+// The same-event rule, exercised on pairs the Python twin must agree about.
+const filing = (title, url, publisher) => ({ title, url, publishers: [publisher], sources: [publisher] });
+const pair = (left, right) => sameStory(filing(...left), filing(...right));
+const pairs = [
+  pair(['City council approves transit plan after two-year fight', 'https://alpha.example/1', 'Alpha'],
+       ['Transit plan clears council in 7-4 vote', 'https://beta.example/2', 'Beta']),
+  pair(['Transit plan approved by council', 'https://alpha.example/1', 'Alpha'],
+       ['Transit plan delayed by council', 'https://beta.example/2', 'Beta']),
+  pair(['Harbour fees rise in 2025', 'https://alpha.example/1', 'Alpha'],
+       ['Harbour fees rise in 2026', 'https://beta.example/2', 'Beta']),
+  pair(['Transit plan clears council', 'https://alpha.example/1', 'Alpha'],
+       ['Transit plan vote scheduled', 'https://alpha.example/2', 'Alpha']),
+  pair(['Fusion plant breaks ground', 'https://alpha.example/1', 'Alpha'],
+       ['Fusion plant breaks ground', 'https://beta.example/2', 'Beta'])
+];
+const duplicate = buildEdition({
+  sources: [
+    { url: 'https://alpha.example/feed', source: 'Alpha', items: [
+      item('City council approves transit plan after two-year fight', 'https://alpha.example/1')] },
+    { url: 'https://beta.example/feed', source: 'Beta', items: [
+      item('Transit plan clears council in 7-4 vote', 'https://beta.example/2')] }
+  ],
+  now
+});
+
 console.log(JSON.stringify({
+  pairs,
+  duplicate: slim(duplicate),
   canonical: [
     canonicalUrl('https://Example.com/story/?utm_source=x&utm_medium=rss&id=7'),
     canonicalUrl('https://example.com/a/#section'),

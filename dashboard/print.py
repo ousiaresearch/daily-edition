@@ -16,8 +16,10 @@ The contract (see PRINT-PIPELINE.md) is four steps and no shell:
 Nothing here calls a model, and nothing is printed unless the caller asks (`dry_run`).
 """
 
+import copy
 import html
 import importlib.util
+import json
 import os
 import pathlib
 import re
@@ -181,8 +183,12 @@ h1, h2, h3 { text-wrap: balance; }
 .lead .body.short { column-count: 1; }
 .lead .body { font-size: 9.6pt; line-height: 1.36; column-count: 2; column-gap: 6mm;
   column-rule: .4pt solid #b3b3b3; }
-.columns { column-count: 3; column-gap: 6mm; column-rule: .4pt solid #b3b3b3; }
-.story { break-inside: avoid; margin-bottom: 8pt; }
+.columns { column-count: 3; column-gap: 6mm; column-rule: .4pt solid #b3b3b3;
+  column-fill: balance; }
+.story { break-inside: auto; margin-bottom: 8pt; }
+.story h3 { break-inside: avoid; break-after: avoid; }
+.story .body { orphans: 3; widows: 3; }
+.story .source { break-before: avoid; }
 .story .kicker { color: #555; font-size: 6pt; }
 .story h3 { font-size: 12.6pt; line-height: 1.08; margin: 1.5pt 0 3pt; font-weight: 700; }
 .story .body { font-size: 8.2pt; line-height: 1.3; }
@@ -251,23 +257,13 @@ def render_html(edition, source_urls=None, scale=1.0):
                                           _escape(lead_body))) if lead_body else '')
         )
 
-    stories_html, briefs_html = [], []
+    entries, briefs_html = [], []
     for section in edition.get('sections') or []:
         for story in section.get('stories') or []:
             body = clean_snippet(story.get('snippet'))
             source_line = domains(story)
             if body:
-                stories_html.append(
-                    '<article class="story">'
-                    '<h3>%s</h3>'
-                    '<p class="body">%s</p>'
-                    '%s'
-                    '</article>'
-                    % (_escape(story.get('title')),
-                       _escape(body),
-                       ('<span class="source">%s</span>' % _escape(source_line, 120))
-                       if source_line else '')
-                )
+                entries.append((story, body, source_line))
             else:
                 # No prose worth setting: print it as a brief, the way a paper prints short items.
                 briefs_html.append(
@@ -277,9 +273,24 @@ def render_html(edition, source_urls=None, scale=1.0):
                        if source_line else '')
                 )
 
+    def story_html(index, entry):
+        story, body, source_line = entry
+        return (
+            '<article class="story" data-story="s%d">'
+            '<h3>%s</h3>'
+            '<p class="body">%s</p>'
+            '%s'
+            '</article>'
+            % (index, _escape(story.get('title')), _escape(body),
+               ('<span class="source">%s</span>' % _escape(source_line, 120))
+               if source_line else '')
+        )
+
     columns_html = ''
-    if stories_html:
-        columns_html = '<div class="columns">%s</div>' % ''.join(stories_html)
+    if entries:
+        columns_html = '<div class="columns">%s</div>' % ''.join(
+            story_html(index, entry) for index, entry in enumerate(entries)
+        )
     if briefs_html:
         columns_html += (
             '<section class="briefs"><div class="kicker">In brief</div>%s</section>'
@@ -313,9 +324,16 @@ def render_html(edition, source_urls=None, scale=1.0):
         '<footer><span>Daily Edition · No. %d · page 1 of 1</span>'
         '<span class="note">%s</span>%s</footer>'
         '</div>'
+        '<script id="measurement" type="application/json">{}</script>'
         '<script>(function(){var usable=984;var h=document.body.scrollHeight||0;'
-        'if(usable>0&&h>0){document.documentElement.setAttribute("data-fill",'
-        'Math.min(9.99,h/usable).toFixed(3));}})();</script>'
+        'var heights={};var nodes=document.querySelectorAll("article.story");'
+        'for(var i=0;i<nodes.length;i++){heights[nodes[i].getAttribute("data-story")]='
+        'Math.round(nodes[i].getBoundingClientRect().height);}'
+        'var fill=h&&usable?Math.min(9.99,h/usable):0;'
+        'if(fill){document.documentElement.setAttribute("data-fill",fill.toFixed(3));}'
+        'var box=document.getElementById("measurement");'
+        'if(box){box.textContent=JSON.stringify({fill:fill,heights:heights,count:nodes.length});}'
+        '})();</script>'
         '</body></html>'
         % (number, date_label, CSS, scale,
            number, date_label,
@@ -411,16 +429,11 @@ MAX_SCALE = 1.55
 MAX_ATTEMPTS = 8
 
 
-def measure_fill(html_path):
-    """How much of the sheet the set page occupies (0–1), measured by the page itself.
-
-    The rendered HTML carries a two-line script that divides the document height by the printable
-    height of a Letter page; `--dump-dom` returns the attribute it wrote. Without a browser this
-    returns 0 and the fitting loop simply leaves the type at its base size.
-    """
+def measure_layout(html_path):
+    """Ask the page how tall it is and how tall each story is (fill, heights in px)."""
     chrome = chrome_path()
     if not chrome:
-        return 0.0
+        return {'fill': 0.0, 'heights': {}, 'count': 0}
     try:
         completed = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-first-run',
@@ -428,9 +441,19 @@ def measure_fill(html_path):
              '--virtual-time-budget=800', '--dump-dom', 'file://%s' % html_path],
             capture_output=True, text=True, timeout=45)
     except (OSError, subprocess.SubprocessError):
-        return 0.0
-    match = re.search(r'data-fill="([0-9.]+)"', completed.stdout or '')
-    return float(match.group(1)) if match else 0.0
+        return {'fill': 0.0, 'heights': {}, 'count': 0}
+    dom = completed.stdout or ''
+    match = re.search(r'<script id="measurement"[^>]*>(.*?)</script>', dom, re.S)
+    if match:
+        try:
+            payload = json.loads(match.group(1) or '{}')
+            return {'fill': float(payload.get('fill') or 0.0),
+                    'heights': {str(k): float(v) for k, v in (payload.get('heights') or {}).items()},
+                    'count': int(payload.get('count') or 0)}
+        except (ValueError, TypeError):
+            pass
+    fill = re.search(r'data-fill="([0-9.]+)"', dom)
+    return {'fill': float(fill.group(1)) if fill else 0.0, 'heights': {}, 'count': 0}
 
 
 def print_edition(edition, printer='', dry_run=False, max_pages=MAX_PAGES, source_urls=None):
@@ -461,13 +484,15 @@ def print_edition(edition, printer='', dry_run=False, max_pages=MAX_PAGES, sourc
         try_files.append(attempt_pdf)
         pdf_path, pdf_error = render_pdf(page_html, attempt_pdf, html_path=html_path)
         pages = page_count(pdf_path) if pdf_path else 0
-        fill = measure_fill(html_path) if pdf_path and pages <= max_pages else 0.0
+        layout = measure_layout(html_path) if pdf_path and pages <= max_pages else {'fill': 0.0, 'heights': {}}
+        fill = layout.get('fill') or 0.0
         attempts.append({'stories': trimmed.get('storyCount') or 0, 'pages': pages,
                          'fill': round(fill, 3), 'scale': round(scale, 3), 'attempt': attempt + 1})
         if pdf_path and pages <= max_pages:
             last_good = scale
             best = {'html': page_html, 'pdf': pdf_path, 'stories': trimmed.get('storyCount') or 0,
-                    'storyList': list(trimmed.get('stories') or []),
+                    'storyList': list(trimmed.get('stories') or []), 'scale': scale,
+                    'heights': layout.get('heights') or {},
                     'pages': pages, 'fill': fill, 'error': pdf_error}
             if fill >= TARGET_FILL:
                 break
@@ -521,6 +546,7 @@ def print_edition(edition, printer='', dry_run=False, max_pages=MAX_PAGES, sourc
         'pdf': pdf_path,
         'text': text_path,
         'pages': page_count(pdf_path) if pdf_path else 0,
+        'fill': round(best['fill'], 3) if best else 0.0,
         'stories': trimmed.get('storyCount') or 0,
         'attempts': attempts,
         'error': pdf_error if not pdf_path else '',

@@ -39,7 +39,10 @@ Rules the renderer enforces, whatever the caller passes:
 ## 2. Steps
 
 1. **Render** — self-contained HTML with `@page` geometry, a serif body, a double-ruled masthead
-   and a footer carrying the edition number, date and sources. No external CSS, fonts or images.
+   and a footer carrying the edition number, date and sources. Body copy flows across three columns
+   with `column-fill: balance`; each headline is `break-inside: avoid; break-after: avoid` and body
+   paragraphs carry `orphans/widows: 3`, so stories continue across the column rule without a
+   headline ever being split or stranded. No external CSS, fonts or images.
 2. **Paginate** — HTML → PDF through a local headless browser (Chrome, Chromium or Edge). The
    browser path is discoverable (`DAILY_EDITION_CHROME`) and never downloaded.
 3. **Typeset and fit** — the page is meant to be **one sheet that looks like a newspaper**, so two

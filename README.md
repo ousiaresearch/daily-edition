@@ -19,7 +19,7 @@ What that buys you, and what it costs:
 
 A feed scrolls forever; a newspaper is finished and dated. Each **Print new edition** composes one front page from every source and files it:
 
-- **One story, once.** The same story arriving from three outlets is clustered by canonical link and headline overlap into a single article that credits each source (`Alpha · Beta — cross-posted`).
+- **One story, once.** The same story arriving from three outlets is clustered by canonical link, then by headline evidence: shared wording, a shared named thing ("transit plan") with a compatible verb, or one headline contained in the other. A different year or a contradictory verb — *approved* against *delayed* — keeps two filings apart, and one masthead never cross-posts itself. Clusters are merged transitively, so a story told three ways becomes one article crediting each source (`Alpha · Beta — cross-posted`).
 - **A lead.** Consensus wins the top of the page: a story carried by more sources outranks a single-source one, then recency breaks the tie.
 - **Sections.** The rest is grouped by the source that carried it, so a page has structure instead of one undifferentiated list.
 - **No reprints.** The most recent edition from an *earlier day* is remembered by link and headline, and any story it already carried is withheld rather than printed twice. Re-printing on the same day replaces that day's front page instead of yielding to it.
@@ -74,6 +74,9 @@ The sheet is typeset, not dumped:
   reported, so nothing disappears silently.
 - **Feed noise is removed.** URL dumps, `Article URL:` labels and vote counts are stripped; a story
   with no usable prose prints as an entry in **In brief**, and no URL is ever printed as body text.
+- **The columns end level.** Stories flow across the three columns with their headlines protected
+  from splitting, so the copy balances itself and the bottoms meet at one rule instead of leaving a
+  ragged hole at the foot of the page.
 - **No printer is not a dead end.** The page is always left in `$HERMES_HOME/daily-edition/prints/`
   as HTML, PDF (when a headless browser is installed) and plain text, so it can be printed by hand.
 - **Nothing is fetched to print.** The renderer draws only the edition it is given, escapes every
@@ -137,4 +140,4 @@ No authenticated feeds, JSON Feed parsing, automatic background polling, or imag
 
 Discovery reads `<link rel="alternate">` and, failing that, six conventional paths. Sites that only publish a human "RSS" page without advertising a feed (ars technica's homepage is one) return no candidates — paste their feed URL directly. Discovery downloads at most 512 KB of a page.
 
-Story clustering is heuristic (canonical link, then headline word overlap with a light stem): it can merge two genuinely different stories with near-identical headlines, and it will not match translations or a rewritten headline that shares little vocabulary. Withholding compares against the last edition from an earlier day only — a story that runs again a week later prints again. Back issues store headlines and links, not full text. Read and saved lists are bounded (2,000 read, 100 saved) and search covers the current edition, not the archive.
+Story clustering is heuristic (canonical link, then shared wording, a shared named thing plus a compatible verb, or headline containment): it can still merge two genuinely different stories that name the same thing and the same kind of action, and it will not match translations, or a rewrite that shares neither vocabulary nor a named phrase. Withholding compares against the last edition from an earlier day only — a story that runs again a week later prints again. Back issues store headlines and links, not full text. Read and saved lists are bounded (2,000 read, 100 saved) and search covers the current edition, not the archive.

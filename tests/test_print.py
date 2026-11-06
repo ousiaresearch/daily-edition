@@ -37,6 +37,13 @@ class RenderTests(unittest.TestCase):
         self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', page)
         self.assertIn('Two corridors &amp; a spur.', page)
 
+    def test_columns_flow_with_protected_headings(self):
+        page = press.render_html(EDITION)
+        self.assertIn('.story { break-inside: auto', page)
+        self.assertIn('.story h3 { break-inside: avoid', page)
+        self.assertIn('orphans: 3', page)
+        self.assertIn('column-fill: balance', page)
+
     def test_sets_a_broadsheet_not_a_link_list(self):
         page = press.render_html(EDITION)
         self.assertIn('class="nameplate"', page)
@@ -167,7 +174,7 @@ class PrintEditionTests(unittest.TestCase):
 
     def test_dry_run_writes_artifacts_and_never_calls_lp(self):
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
-             patch.object(press, 'measure_fill', return_value=0.95), \
+             patch.object(press, 'measure_layout', return_value={'fill': 0.95, 'heights': {}}), \
              patch.object(press, 'submit') as submit_mock:
             result = press.print_edition(EDITION, dry_run=True)
         submit_mock.assert_not_called()
@@ -185,7 +192,7 @@ class PrintEditionTests(unittest.TestCase):
             return 2 if seen['n'] == 1 else 1
 
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
-             patch.object(press, 'measure_fill', return_value=0.95), \
+             patch.object(press, 'measure_layout', return_value={'fill': 0.95, 'heights': {}}), \
              patch.object(press, 'page_count', side_effect=pages):
             result = press.print_edition(edition, dry_run=True)
         self.assertEqual(result['pages'], 1)
@@ -196,10 +203,10 @@ class PrintEditionTests(unittest.TestCase):
         fills = iter([0.45, 0.95])
 
         def fill(path):
-            return next(fills)
+            return {'fill': next(fills), 'heights': {}}
 
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
-             patch.object(press, 'measure_fill', side_effect=fill):
+             patch.object(press, 'measure_layout', side_effect=fill):
             result = press.print_edition(EDITION, dry_run=True)
         self.assertEqual(len(result['attempts']), 2)
         self.assertGreater(result['attempts'][-1]['scale'], 1.0)
@@ -212,7 +219,7 @@ class PrintEditionTests(unittest.TestCase):
 
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
              patch.object(press, 'page_count', side_effect=lambda p: next(pages)), \
-             patch.object(press, 'measure_fill', side_effect=lambda p: next(fills)):
+             patch.object(press, 'measure_layout', side_effect=lambda p: {'fill': next(fills), 'heights': {}}):
             result = press.print_edition(dict(EDITION, stories=[1, 2, 3], storyCount=3), dry_run=True)
         # Grew to fill the sheet, overflowed, and went back to the last attempt that fitted:
         # no story dropped, and the submitted PDF is the one that was measured at 1 page.
@@ -226,7 +233,7 @@ class PrintEditionTests(unittest.TestCase):
 
     def test_printer_problem_does_not_raise(self):
         with patch.object(press, 'render_pdf', side_effect=self.fake_pdf(1)), \
-             patch.object(press, 'measure_fill', return_value=0.95), \
+             patch.object(press, 'measure_layout', return_value={'fill': 0.95, 'heights': {}}), \
              patch.object(press, 'available_printers', return_value=[]):
             result = press.print_edition(EDITION, dry_run=False)
         self.assertFalse(result['ok'])

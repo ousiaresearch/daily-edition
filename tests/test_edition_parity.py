@@ -108,6 +108,34 @@ class ParityTests(unittest.TestCase):
         self.assertEqual(self.js['firstStandfirst'], model.edition_diff(self.first, None)['line'])
         self.assertEqual(self.js['secondStandfirst'], model.edition_diff(self.second, self.first)['line'])
 
+    def test_same_event_rule_matches(self):
+        def filing(title, url, publisher):
+            return {'title': title, 'url': url, 'publishers': [publisher], 'sources': [publisher]}
+
+        cases = [
+            (('City council approves transit plan after two-year fight', 'https://alpha.example/1', 'Alpha'),
+             ('Transit plan clears council in 7-4 vote', 'https://beta.example/2', 'Beta')),
+            (('Transit plan approved by council', 'https://alpha.example/1', 'Alpha'),
+             ('Transit plan delayed by council', 'https://beta.example/2', 'Beta')),
+            (('Harbour fees rise in 2025', 'https://alpha.example/1', 'Alpha'),
+             ('Harbour fees rise in 2026', 'https://beta.example/2', 'Beta')),
+            (('Transit plan clears council', 'https://alpha.example/1', 'Alpha'),
+             ('Transit plan vote scheduled', 'https://alpha.example/2', 'Alpha')),
+            (('Fusion plant breaks ground', 'https://alpha.example/1', 'Alpha'),
+             ('Fusion plant breaks ground', 'https://beta.example/2', 'Beta')),
+        ]
+        ours = [model.same_story(filing(*left), filing(*right)) for left, right in cases]
+        self.assertEqual(self.js['pairs'], ours)
+
+    def test_duplicate_story_is_clustered_identically(self):
+        duplicate = model.build_edition(sources=[
+            {'url': 'https://alpha.example/feed', 'source': 'Alpha', 'items': [
+                item('City council approves transit plan after two-year fight', 'https://alpha.example/1')]},
+            {'url': 'https://beta.example/feed', 'source': 'Beta', 'items': [
+                item('Transit plan clears council in 7-4 vote', 'https://beta.example/2')]},
+        ], now='2026-11-05T12:00:00Z')
+        self.assertEqual(self.js['duplicate'], slim(duplicate))
+
     def test_archive_summary_matches(self):
         summary = model.edition_summary(self.first)
         merged = model.merge_archive([], summary, 7)

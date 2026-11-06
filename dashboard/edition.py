@@ -109,15 +109,103 @@ def date_label(date):
     return '%s, %d %s %d' % (_WEEKDAYS[date.weekday()], date.day, _MONTHS[date.month - 1], date.year)
 
 
+ACTION_FAMILY = {
+    'approve': 'decide', 'approves': 'decide', 'approved': 'decide',
+    'pass': 'decide', 'passes': 'decide', 'passed': 'decide',
+    'adopt': 'decide', 'adopts': 'decide', 'adopted': 'decide',
+    'vote': 'decide', 'votes': 'decide', 'voted': 'decide',
+    'clear': 'decide', 'clears': 'decide', 'cleared': 'decide',
+    'back': 'decide', 'backs': 'decide', 'backed': 'decide',
+    'decide': 'decide', 'decides': 'decide', 'decided': 'decide',
+    'reject': 'refuse', 'rejects': 'refuse', 'rejected': 'refuse',
+    'block': 'refuse', 'blocks': 'refuse', 'blocked': 'refuse',
+    'veto': 'refuse', 'vetoes': 'refuse', 'vetoed': 'refuse',
+    'deny': 'refuse', 'denies': 'refuse', 'denied': 'refuse',
+    'delay': 'delay', 'delays': 'delay', 'delayed': 'delay',
+    'postpone': 'delay', 'postponed': 'delay', 'shelve': 'delay', 'shelved': 'delay',
+    'suspend': 'delay', 'suspended': 'delay',
+    'rise': 'up', 'rises': 'up', 'rising': 'up', 'climb': 'up', 'climbs': 'up', 'climbed': 'up',
+    'increase': 'up', 'increases': 'up', 'soar': 'up', 'soars': 'up', 'gain': 'up', 'gains': 'up',
+    'fall': 'down', 'falls': 'down', 'fell': 'down', 'drop': 'down', 'drops': 'down', 'dropped': 'down',
+    'decline': 'down', 'declines': 'down', 'cut': 'down', 'cuts': 'down', 'plunge': 'down', 'plunges': 'down',
+    'launch': 'begin', 'launches': 'begin', 'launched': 'begin', 'unveil': 'begin', 'unveils': 'begin',
+    'open': 'begin', 'opens': 'begin', 'opened': 'begin', 'release': 'begin', 'releases': 'begin',
+    'start': 'begin', 'starts': 'begin',
+    'close': 'end', 'closes': 'end', 'closed': 'end', 'shut': 'end', 'shuts': 'end',
+    'halt': 'end', 'halts': 'end',
+    'warn': 'warn', 'warns': 'warn', 'warned': 'warn', 'warning': 'warn', 'alert': 'warn', 'alerts': 'warn',
+}
+
+_YEARS = re.compile(r'\b(?:19|20)\d{2}\b')
+
+
+def _action_families(title):
+    return {ACTION_FAMILY[word] for word in title_key(title).split(' ') if word in ACTION_FAMILY}
+
+
+def _years(title):
+    return set(_YEARS.findall(str(title or '')))
+
+
+def _conflicting_years(a, b):
+    left, right = _years(a), _years(b)
+    if not left or not right:
+        return False
+    return not (left & right)
+
+
+def _compatible_actions(a, b):
+    left, right = _action_families(a), _action_families(b)
+    if not left or not right:
+        return True
+    return bool(left & right)
+
+
+def _content_bigrams(title):
+    words = [word for word in title_key(title).split(' ') if len(word) >= 4]
+    return {words[i] + ' ' + words[i + 1] for i in range(len(words) - 1)}
+
+
+def _shares_bigram(a, b):
+    return bool(_content_bigrams(a) & _content_bigrams(b))
+
+
+def same_story(a, b):
+    """One story, once — the Python twin of sameStory() in desktop/edition.js."""
+    if a.get('url') and a.get('url') == b.get('url'):
+        return True
+    if _conflicting_years(a.get('title'), b.get('title')):
+        return False
+    if not _compatible_actions(a.get('title'), b.get('title')):
+        return False
+    left, right = tokens(a.get('title')), tokens(b.get('title'))
+    shared = len(left & right)
+    min_size = min(len(left), len(right))
+    if not shared or not min_size:
+        return False
+    containment = shared / min_size
+    jaccard = shared / (len(left) + len(right) - shared)
+    score = 0.65 * containment + 0.35 * jaccard
+    if score >= 0.66 and shared >= 3:
+        return True
+    publishers_a = a.get('publishers') or []
+    publishers_b = b.get('publishers') or []
+    if any(name in publishers_b for name in publishers_a):
+        return False
+    if shared >= 2 and _shares_bigram(a.get('title'), b.get('title')):
+        return True
+    return containment >= 0.9 and min_size >= 3
+
+
 def _cluster(sources):
-    stories = []
+    items = []
     for feed in sources:
         for raw in (feed.get('items') or []):
             url = canonical_url(raw.get('url'))
             title = str(raw.get('title') or '').strip()
             if not url or not title:
                 continue
-            candidate = {
+            items.append({
                 'title': title,
                 'url': url,
                 'snippet': str(raw.get('snippet') or ''),
@@ -126,25 +214,53 @@ def _cluster(sources):
                 'sources': [feed.get('source')],
                 'publishers': [str(raw.get('publisher') or feed.get('source'))],
                 'also': [{'source': feed.get('source'), 'url': url}],
-            }
-            match = next((story for story in stories
-                          if story['url'] == url or similarity(story['title'], title) >= CLUSTER_THRESHOLD),
-                         None)
-            if match is None:
-                stories.append(candidate)
-                continue
-            if feed.get('source') not in match['sources']:
-                match['sources'].append(feed.get('source'))
-            publisher = str(raw.get('publisher') or feed.get('source'))
-            if publisher not in match['publishers']:
-                match['publishers'].append(publisher)
-            if not any(entry['url'] == url for entry in match['also']):
-                match['also'].append({'source': feed.get('source'), 'url': url})
-            if len(candidate['snippet']) > len(match['snippet']):
-                match['snippet'] = candidate['snippet']
-            if candidate['at'] and (not match['at'] or candidate['at'] < match['at']):
-                match['at'] = candidate['at']
-                match['date'] = candidate['date']
+            })
+
+    parent = list(range(len(items)))
+
+    def find(index):
+        root = index
+        while parent[root] != root:
+            root = parent[root]
+        while parent[index] != root:
+            parent[index], index = root, parent[index]
+        return root
+
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            if same_story(items[i], items[j]):
+                root_i, root_j = find(i), find(j)
+                if root_i != root_j:
+                    parent[max(root_i, root_j)] = min(root_i, root_j)
+
+    groups = {}
+    for index, item in enumerate(items):
+        groups.setdefault(find(index), []).append(item)
+
+    stories = []
+    for group in groups.values():
+        story = dict(group[0])
+        story['sources'] = list(group[0]['sources'])
+        story['publishers'] = list(group[0]['publishers'])
+        story['also'] = list(group[0]['also'])
+        for item in group[1:]:
+            for source in item['sources']:
+                if source not in story['sources']:
+                    story['sources'].append(source)
+            for publisher in item['publishers']:
+                if publisher not in story['publishers']:
+                    story['publishers'].append(publisher)
+            known_urls = {known['url'] for known in story['also']}
+            for entry in item['also']:
+                if entry['url'] not in known_urls:
+                    story['also'].append(entry)
+                    known_urls.add(entry['url'])
+            if len(item['snippet']) > len(story['snippet']):
+                story['snippet'] = item['snippet']
+            if item['at'] and (not story['at'] or item['at'] < story['at']):
+                story['at'] = item['at']
+                story['date'] = item['date']
+        stories.append(story)
     return stories
 
 
