@@ -42,9 +42,9 @@ Rules the renderer enforces, whatever the caller passes:
    and a footer carrying the edition number, date and sources. No external CSS, fonts or images.
 2. **Paginate** — HTML → PDF through a local headless browser (Chrome, Chromium or Edge). The
    browser path is discoverable (`DAILY_EDITION_CHROME`) and never downloaded.
-3. **Fit** — the page is meant to be **one sheet**. If the PDF is longer than `max_pages`, drop the
-   last story and render again, up to 4 attempts, so the submitted PDF always matches the content
-   that was measured. A page that still runs long is submitted rather than silently truncated.
+3. **Fit** — the page is meant to be **one sheet**. If the PDF is longer than `max_pages`, drop
+   the tail stories (about 20% of them) and render again, up to five attempts, so the submitted PDF
+   always matches the content that was measured. A page that still runs long is submitted rather than silently truncated.
 4. **Submit** — `lp` with an **argument array** and a printer name validated against the local
    queue list. No `shell=True`, no interpolation, no printer discovered from the network.
 

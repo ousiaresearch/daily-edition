@@ -25,7 +25,7 @@ import subprocess
 import time
 
 MAX_PAGES = 1
-FIT_ATTEMPTS = 3
+FIT_ATTEMPTS = 4
 RENDER_TIMEOUT = 90
 PRINTER_RE = re.compile(r'^[A-Za-z0-9._-]{1,64}$')
 
@@ -270,7 +270,8 @@ def print_edition(edition, printer='', dry_run=False, max_pages=MAX_PAGES, sourc
         stories = list(trimmed.get('stories') or [])
         if not pdf_path or pages <= max_pages or len(stories) <= 1:
             break
-        keep = max(1, len(stories) - 1)
+        # Trim proportionally: one story at a time cannot close a two-page overflow.
+        keep = max(1, min(len(stories) - 1, int(len(stories) * 0.8)))
         trimmed = dict(trimmed, stories=stories[:keep], storyCount=keep,
                        omitted=(trimmed.get('omitted') or 0) + (len(stories) - keep))
 

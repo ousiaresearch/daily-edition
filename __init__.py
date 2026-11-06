@@ -135,7 +135,9 @@ def _tool(args):
             engine = _compose()
             press = _press()
             current = _state().read()
-            edition, standfirst, errors = engine.compose(current, max_stories=max_stories,
+            # A sheet holds about a dozen stories; the text edition can hold twenty.
+            paper_stories = int(args.get('max_stories') or 12)
+            edition, standfirst, errors = engine.compose(current, max_stories=max(1, min(paper_stories, 40)),
                                                          interests=interests)
             edition['standfirst'] = standfirst.get('line', '')
             if edition['storyCount']:

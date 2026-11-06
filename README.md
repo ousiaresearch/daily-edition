@@ -63,8 +63,8 @@ as one Letter page with a masthead, a lead and a footer naming the sources, then
 through CUPS. `action: print_paper` does the same from chat, and `/edition preview` renders the page
 without printing it.
 
-- **One page, or fewer stories.** If the page runs long, the last stories are dropped and the sheet
-  is rendered again — up to four attempts. The printed count is reported, so nothing disappears
+- **One page, or fewer stories.** If the page runs long, the tail stories are dropped and the sheet
+  is rendered again — up to five attempts, about 20% fewer each time. The printed count is reported, so nothing disappears
   silently.
 - **No printer is not a dead end.** The page is always left in `$HERMES_HOME/daily-edition/prints/`
   as HTML, PDF (when a headless browser is installed) and plain text, so it can be printed by hand.
