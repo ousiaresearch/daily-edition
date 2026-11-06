@@ -1,0 +1,18 @@
+name: daily-edition
+label: Daily Edition
+version: "0.3.0"
+kind: standalone
+author: Johann Ross
+description: >-
+  A personal newspaper compiled from your interests. The page composes a dated front page
+  (one story once, cross-posted stories merged, consensus winning the lead, reprints withheld),
+  keeps seven back issues, reads full articles in place, and styles headlines in an optional
+  editorial voice. The agent can print the same edition with the daily_edition tool or /edition.
+requires_hermes: ">=0.22.5"
+provides_tools:
+  - daily_edition
+provides_hooks: []
+platforms:
+  - macos
+  - linux
+  - windows
