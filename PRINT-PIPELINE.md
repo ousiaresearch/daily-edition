@@ -1,6 +1,6 @@
 # Print pipeline — v1 spec
 
-**Status:** implemented in Daily Edition 0.4.0 (`dashboard/print.py`) and verified on macOS.
+**Status:** implemented in Daily Edition 0.4.2 (`dashboard/print.py`) and verified on macOS.
 **Scope:** any Hermes plugin that composes content meant to leave the screen.
 
 A plugin that can render a page can put it on paper. The pipeline is deliberately small: four

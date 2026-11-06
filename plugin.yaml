@@ -2,7 +2,8 @@ name: daily-edition
 label: Daily Edition
 version: "0.4.2"
 kind: standalone
-author: Johann Ross
+author: Ousia Research
+homepage: https://github.com/ousiaresearch/daily-edition
 description: >-
   A personal newspaper compiled from your interests. The page composes a dated front page
   (one story once, cross-posted stories merged, consensus winning the lead, reprints withheld),

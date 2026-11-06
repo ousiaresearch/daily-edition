@@ -1,5 +1,7 @@
 # Daily Edition
 
+![The printed front page](docs/images/edition-page.png)
+
 A personal newspaper inside Hermes Desktop. **You give it interests, not subscriptions**: name what you care about — a subject, a place, an institution — and it compiles a dated edition with a lead story, one section per interest, cross-source consensus and a shelf of back issues. Stories open and read **inside the paper**; the publisher's page is always one click away. There are no accounts, tracking, or default feeds.
 
 **No model is involved unless you ask for one.** The edition itself is composed deterministically. **Editorial voices** are an opt-in extra: pick a persona and press *Style as ...* to have the headlines rewritten in that voice, always printed above the publisher's own wording.
@@ -40,7 +42,19 @@ With the paper open:
 
 ## Use
 
-This is a **unified Hermes plugin**, not a standalone web app. It needs a recent Hermes Desktop and its gateway. To install after reviewing the code, install this directory as `daily-edition` under the active profile's plugins directory using the normal Hermes plugin flow, enable the agent plugin, restart the gateway so its backend routes mount, and enable its desktop half in **Capabilities → Plugins**. Open **Daily Edition** in the sidebar. The desktop half is opt-in. If the backend is unavailable the page shows an error instead of fabricated stories.
+This is a **unified Hermes plugin**, not a standalone web app. It needs a recent Hermes Desktop and its gateway.
+
+```bash
+# clone into the profile's plugin directory ($HERMES_HOME defaults to ~/.hermes)
+git clone https://github.com/ousiaresearch/daily-edition "$HERMES_HOME/plugins/daily-edition"
+hermes plugins adopt daily-edition     # reads the git origin, so updates keep working
+hermes plugins enable daily-edition
+hermes gateway restart                 # so the backend routes mount
+```
+
+Then enable the desktop half in **Capabilities → Plugins** and open **Daily Edition** in the sidebar. The desktop half is opt-in; if the backend is unavailable the page shows an error instead of fabricated stories.
+
+`hermes plugins install <local path>` does **not** work for a directory — it parses the path as a GitHub repository. Clone and adopt, as above.
 
 Paste a public HTTP(S) **website or feed** URL under **Advanced** and choose **Find feed**. The backend reads the page and returns the feed(s) it advertises via `<link rel="alternate">`; if the page advertises several, you pick which to add. A URL that is already a feed is recognised and added directly. **Import OPML** accepts an exported subscription list and adds every safe subscription in it; **Export OPML** hands your sources back as a document (copied to the clipboard), so nothing is trapped in plugin storage.
 
@@ -125,14 +139,17 @@ To reduce server-side request forgery, the gateway refuses non-HTTP(S), credenti
 No third-party plugin dependencies or build step. FastAPI is provided by the Hermes gateway environment.
 
 ```sh
-python3.14 -m unittest discover -s tests -v   # 78 tests, including JS↔Python parity
-node --test tests/edition.test.mjs            # 19 tests: clustering, reprints, sections, archive
+python3.14 -m unittest discover -s tests -v   # 116 tests: backend, parity, print, packaging
+node --test tests/edition.test.mjs            # 24 tests: clustering, reprints, sections, archive
 node tests/desktop.mjs                        # registration + empty-state render smoke
 hermes plugins validate "$PWD" --install-deps
 hermes plugins doctor "$PWD" --ci
 ```
 
-`tests/test_edition_parity.py` runs `tests/parity_fixture.mjs` through Node and compares every field the reader or the tool can see, so the two implementations cannot drift silently. `tests/test_fetch.py` covers per-hop redirect vetting, the hop limit and relative `Location`. `tests/test_reader.py` covers article extraction and proves no markup survives it. `tests/test_state.py` covers the mirrored settings file. `tests/desktop.mjs` is a registration and empty-state render smoke test, not an Electron end-to-end test. For a manual check in an isolated Hermes profile, install and enable the plugin there, restart the gateway, then verify adding/removing sources, printing an edition, in-app reading, saved/unread state, back issues, persistence after restart and partial errors. Live network access and publisher availability are not required by the deterministic test suite. The code uses the [Desktop SDK](https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk) and [dashboard backend API](https://hermes-agent.nousresearch.com/docs/user-guide/features/extending-the-dashboard).
+`tests/test_edition_parity.py` runs `tests/parity_fixture.mjs` through Node and compares every field the reader or the tool can see, so the two implementations cannot drift silently. `tests/test_fetch.py` covers per-hop redirect vetting, the hop limit and relative `Location`. `tests/test_reader.py` covers article extraction and proves no markup survives it. `tests/test_state.py` covers the mirrored settings file. `tests/desktop.mjs` is a registration and empty-state render smoke test, not an Electron end-to-end test.
+`tests/test_packaging.py` keeps `plugin.yaml`, `dashboard/manifest.json` and the changelog in step.
+[RELEASE.md](RELEASE.md) records what a release has actually verified — and what it has not — and
+[CHANGELOG.md](CHANGELOG.md) records what changed. For a manual check in an isolated Hermes profile, install and enable the plugin there, restart the gateway, then verify adding/removing sources, printing an edition, in-app reading, saved/unread state, back issues, persistence after restart and partial errors. Live network access and publisher availability are not required by the deterministic test suite. The code uses the [Desktop SDK](https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk) and [dashboard backend API](https://hermes-agent.nousresearch.com/docs/user-guide/features/extending-the-dashboard).
 
 ## Known limitations
 
