@@ -17,12 +17,19 @@ what is verified, how it was verified, and what is deliberately left to a human 
 
 | Claim | How it was checked | Result |
 |---|---|---|
-| Fresh clone is self-contained | `git clone` to a temp dir, then all suites | 103 Python, 24 Node, harness, `validate` — pass |
+| Fresh clone is self-contained | `git clone` to a temp dir, then all suites | 115 Python, 24 Node, harness, `validate` — pass |
 | A composed edition prints to one page | live HN feed → PDF → rendered to an image and inspected | 1 page, fill 91%, no split headlines, columns level |
-| Install from GitHub into an empty profile | clone → `hermes plugins adopt` → `enable` → `doctor` | recorded in the install notes below |
+| Install from GitHub into an empty profile | clone → `hermes plugins adopt` → `enable` → `doctor` | **not verified** — every `hermes plugins …` invocation against a non-live `HERMES_HOME` blocks (see below). Verified as far as: clone of the tag + `validate` and `doctor` in the development profile |
 | Reader extraction keeps no markup | `tests/test_reader.py` | pass |
 
 ## Deliberately not proven
+
+- **Install into a clean profile end to end.** Cloning the tag works; `hermes plugins adopt` against a
+  throwaway or copied `HERMES_HOME` blocks indefinitely in this environment (the CLI never returns,
+  with an initialised profile copy, a bare profile, or with stdin closed). The plugin contract itself
+  validates, so this is the CLI's profile bootstrap, not the plugin — but it means the install steps
+  above are the CLI's documented flow rather than a verified transcript. Run them once by hand on a
+  second machine before pointing a stranger at the README.
 
 - **The Desktop half in a running Desktop app.** The harness invokes the components directly; it does
   not prove Electron accepts the page, that `ctx.storage` persists across restarts, or that the

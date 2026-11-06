@@ -1,5 +1,7 @@
 # Daily Edition
 
+[![ci](https://github.com/ousiaresearch/daily-edition/actions/workflows/ci.yml/badge.svg)](https://github.com/ousiaresearch/daily-edition/actions/workflows/ci.yml)
+
 ![The printed front page](docs/images/edition-page.png)
 
 A personal newspaper inside Hermes Desktop. **You give it interests, not subscriptions**: name what you care about — a subject, a place, an institution — and it compiles a dated edition with a lead story, one section per interest, cross-source consensus and a shelf of back issues. Stories open and read **inside the paper**; the publisher's page is always one click away. There are no accounts, tracking, or default feeds.
