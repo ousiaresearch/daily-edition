@@ -402,12 +402,14 @@ def available_printers():
 
 def submit(path, printer=''):
     """Send a file to a printer with an argument array. Returns (job_id, error)."""
+    printer = (printer or '').strip()
+    # Validate the caller's input before asking the host anything: a malformed name is a caller
+    # bug on every machine, and the error should not change with the host's CUPS install.
+    if printer and not PRINTER_RE.match(printer):
+        return '', 'Invalid printer name'
     lp = shutil.which('lp')
     if not lp:
         return '', 'CUPS lp is not installed'
-    printer = (printer or '').strip()
-    if printer and not PRINTER_RE.match(printer):
-        return '', 'Invalid printer name'
     known = available_printers()
     if printer and known and printer not in known:
         return '', 'No such printer: %s (available: %s)' % (printer, ', '.join(known) or 'none')

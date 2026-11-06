@@ -116,6 +116,11 @@ class RenderTests(unittest.TestCase):
 
 
 class SubmitTests(unittest.TestCase):
+    def setUp(self):
+        # Tests must not depend on whether the host has CUPS installed.
+        patcher = patch.object(press.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name)
+        patcher.start()
+        self.addCleanup(patcher.stop)
     def test_refuses_a_printer_name_that_could_be_shell_input(self):
         job, error = press.submit('/tmp/x.pdf', 'office; rm -rf /')
         self.assertEqual(job, '')
@@ -126,6 +131,12 @@ class SubmitTests(unittest.TestCase):
             job, error = press.submit('/tmp/x.pdf', '')
         self.assertEqual(job, '')
         self.assertIn('No printer is configured', error)
+
+    def test_without_cups_it_says_so_plainly(self):
+        with patch.object(press.shutil, 'which', return_value=None):
+            job, error = press.submit('/tmp/x.pdf', '')
+        self.assertEqual(job, '')
+        self.assertIn('CUPS lp is not installed', error)
 
     def test_parses_the_job_id(self):
         with patch.object(press, 'available_printers', return_value=['Office']), \
@@ -162,6 +173,10 @@ class PrintEditionTests(unittest.TestCase):
         patcher = patch.dict(os.environ, {'HERMES_HOME': self.tmp.name})
         patcher.start()
         self.addCleanup(patcher.stop)
+        # CUPS presence is a property of the host, not of the pipeline's logic.
+        which = patch.object(press.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name)
+        which.start()
+        self.addCleanup(which.stop)
 
     def fake_pdf(self, pages):
         def render(html_text, out_path, html_path=''):

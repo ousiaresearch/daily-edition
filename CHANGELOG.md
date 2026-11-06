@@ -3,6 +3,15 @@
 All notable changes to Daily Edition. Versions follow the plugin manifest (`plugin.yaml`), which is
 kept in step with `dashboard/manifest.json` by a test.
 
+## 0.4.3 — 2026-11-06
+
+### Fixed
+- `submit()` now validates the printer name **before** probing the host, so a malformed name reports
+  `Invalid printer name` on every machine instead of `CUPS lp is not installed` where CUPS is absent.
+- The print tests no longer depend on the host having CUPS: binaries are resolved through a patched
+  `shutil.which`, and a new test covers the "no CUPS at all" message. First CI run on Linux caught
+  six portability failures that macOS hid; this is that fix.
+
 ## 0.4.2 — 2026-11-05
 
 ### Changed
