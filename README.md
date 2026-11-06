@@ -139,7 +139,7 @@ To reduce server-side request forgery, the gateway refuses non-HTTP(S), credenti
 No third-party plugin dependencies or build step. FastAPI is provided by the Hermes gateway environment.
 
 ```sh
-python3.14 -m unittest discover -s tests -v   # 116 tests: backend, parity, print, packaging
+python3.14 -m unittest discover -s tests -v   # 114 tests: backend, parity, print, packaging
 node --test tests/edition.test.mjs            # 24 tests: clustering, reprints, sections, archive
 node tests/desktop.mjs                        # registration + empty-state render smoke
 hermes plugins validate "$PWD" --install-deps
