@@ -3,6 +3,14 @@
 All notable changes to Daily Edition. Versions follow the plugin manifest (`plugin.yaml`), which is
 kept in step with `dashboard/manifest.json` by a test.
 
+## 0.4.5 — 2026-11-06
+
+### Fixed
+- The packaging suite no longer assumes the checkout directory is named `daily-edition`: it reads the
+  `origin` remote (and skips when there is none) and separately asserts the name is a valid plugin
+  slug. Before this, a reviewer cloning into `/tmp/pincheck` got one red test in a suite that had
+  nothing to do with the change. Found at the pinned commit during plugin-catalog pre-flight.
+
 ## 0.4.4 — 2026-11-06
 
 ### Added

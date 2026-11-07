@@ -32,8 +32,26 @@ class PackagingTests(unittest.TestCase):
         self.manifest = load_manifest()
         self.package = json.loads((ROOT / 'dashboard' / 'manifest.json').read_text('utf-8'))
 
-    def test_name_is_the_directory_name(self):
-        self.assertEqual(self.manifest['name'], ROOT.name)
+    def test_name_is_a_plugin_slug(self):
+        self.assertRegex(self.manifest['name'], r'^[a-z0-9][a-z0-9_-]{0,63}$')
+
+    def test_name_matches_the_repository_it_ships_from(self):
+        # The plugin name is the catalog key and the install directory, so it must match the repo it
+        # is published from — but a reviewer who clones into /tmp/whatever must still get a green
+        # suite, so this reads the remote rather than the checkout's directory name.
+        import subprocess
+        try:
+            remote = subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=ROOT,
+                                    capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            self.skipTest('not a git checkout')
+        url = (remote.stdout or '').strip()
+        if remote.returncode != 0 or not url:
+            self.skipTest('no origin remote')
+        base = url.rstrip('/').rsplit('/', 1)[-1].rsplit(':', 1)[-1]
+        if base.endswith('.git'):
+            base = base[:-4]
+        self.assertEqual(self.manifest['name'], base)
 
     def test_versions_agree_between_the_two_manifests(self):
         self.assertEqual(str(self.manifest['version']), str(self.package['version']))
