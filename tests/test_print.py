@@ -1,5 +1,6 @@
 import os
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -125,6 +126,32 @@ class SubmitTests(unittest.TestCase):
         job, error = press.submit('/tmp/x.pdf', 'office; rm -rf /')
         self.assertEqual(job, '')
         self.assertIn('Invalid printer name', error)
+
+    def test_the_browser_is_told_not_to_reach_the_network(self):
+        """Both browser invocations must carry the offline flags, not just the print one."""
+        captured = []
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+
+        def fake_run(argv, **kwargs):
+            captured.append(argv)
+            if '--dump-dom' in argv:
+                return Completed('', '', 0)
+            pathlib.Path(argv[[i for i, a in enumerate(argv) if a.startswith('--print-to-pdf=')][0]]
+                         .split('=', 1)[1]).write_bytes(b'%PDF-1.4')
+            return Completed('', '', 0)
+
+        with patch.object(press, 'chrome_path', return_value='/usr/bin/chrome'), \
+             patch.object(press, 'BROWSER_FLAGS', press.BROWSER_FLAGS), \
+             patch.object(press.subprocess, 'run', side_effect=fake_run):
+            press.render_pdf('<p>x</p>', str(pathlib.Path(tmp) / 'x.pdf'))
+            press.measure_layout(str(pathlib.Path(tmp) / 'x.pdf.html'))
+
+        self.assertGreaterEqual(len(captured), 2)
+        for argv in captured:
+            for flag in ('--disable-background-networking', '--disable-component-update',
+                         '--disable-sync', '--no-pings'):
+                self.assertIn(flag, argv)
 
     def test_refuses_when_cups_has_no_destination(self):
         with patch.object(press, 'available_printers', return_value=[]):

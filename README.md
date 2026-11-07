@@ -128,7 +128,7 @@ Configuring it (granted to the **gateway** process, not this plugin; the plugin 
 |---|---|
 | `DAILY_EDITION_API_KEY` | Required for styling. Any OpenAI-compatible key. Without it, styling is disabled and the paper prints unstyled. |
 | `DAILY_EDITION_MODEL` | Model id, default `claude-haiku-5.5`. |
-| `DAILY_EDITION_BASE_URL` | Default `https://tokenharbor.ai/v1`. Plain `http` is accepted only for a loopback endpoint. |
+| `DAILY_EDITION_BASE_URL` | **No default** — styling stays off until you name an OpenAI-compatible endpoint, so no vendor is chosen for you. Plain `http` is accepted only for a loopback endpoint. |
 
 **Privacy note:** pressing *Style as ...* sends the headlines and summaries of that edition to the configured model provider. Nothing is sent while browsing the paper, refreshing, reading a story, or changing preferences.
 

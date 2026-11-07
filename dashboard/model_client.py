@@ -10,7 +10,9 @@ import os
 import urllib.error
 import urllib.request
 
-DEFAULT_BASE = 'https://tokenharbor.ai/v1'
+# There is deliberately no default endpoint. A public plugin must not route anyone's headlines to a
+# vendor they did not choose, so styling stays off until DAILY_EDITION_BASE_URL names one.
+DEFAULT_BASE = ''
 DEFAULT_MODEL = 'claude-haiku-5.5'
 LOOPBACK = ('127.0.0.1', 'localhost', '::1')
 MAX_TOKENS = 96
@@ -20,7 +22,7 @@ TIMEOUT = 25
 def endpoint(base_url):
     base = str(base_url or DEFAULT_BASE).strip().rstrip('/')
     if not base:
-        base = DEFAULT_BASE
+        raise ValueError('No model endpoint configured (set DAILY_EDITION_BASE_URL)')
     if '://' not in base:
         base = 'https://' + base
     scheme, _, rest = base.partition('://')
@@ -36,10 +38,14 @@ def endpoint(base_url):
 
 def settings(env=None):
     env = dict(os.environ if env is None else env)
-    key = env.get('DAILY_EDITION_API_KEY') or ''
-    model = env.get('DAILY_EDITION_MODEL') or DEFAULT_MODEL
+    key = (env.get('DAILY_EDITION_API_KEY') or '').strip()
+    model = (env.get('DAILY_EDITION_MODEL') or DEFAULT_MODEL).strip()
+    base = (env.get('DAILY_EDITION_BASE_URL') or '').strip()
+    if not base:
+        return {'configured': False, 'model': model,
+                'error': 'No model endpoint configured. Set DAILY_EDITION_BASE_URL for the gateway.'}
     try:
-        url = endpoint(env.get('DAILY_EDITION_BASE_URL') or DEFAULT_BASE)
+        url = endpoint(base)
     except ValueError as exc:
         return {'configured': False, 'model': model, 'error': str(exc)}
     if not key:

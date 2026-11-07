@@ -8,7 +8,16 @@ import model_client
 
 
 class ModelClientTests(unittest.TestCase):
-    def test_defaults_to_tokenharbor_and_sends_a_bearer(self):
+    def test_no_endpoint_ships_as_the_default(self):
+        """A public default must not name a vendor: styling is off until one is configured."""
+        self.assertEqual(model_client.DEFAULT_BASE, '')
+        state = model_client.settings({'DAILY_EDITION_API_KEY': 'k'})
+        self.assertFalse(state['configured'])
+        self.assertIn('DAILY_EDITION_BASE_URL', state['error'])
+        with self.assertRaises(ValueError):
+            model_client.endpoint('')
+
+    def test_a_configured_endpoint_sends_a_bearer(self):
         req = model_client.build_request(
             [{'role': 'user', 'content': 'hi'}],
             base_url='https://tokenharbor.ai/v1', model='claude-haiku-5.5', api_key='thk_test')
@@ -33,7 +42,8 @@ class ModelClientTests(unittest.TestCase):
         self.assertIn('DAILY_EDITION_API_KEY', settings['error'])
 
     def test_key_can_come_from_a_named_variable(self):
-        env = {'DAILY_EDITION_API_KEY': 'thk_supersecret_value', 'DAILY_EDITION_MODEL': 'm'}
+        env = {'DAILY_EDITION_API_KEY': 'thk_supersecret_value', 'DAILY_EDITION_MODEL': 'm',
+               'DAILY_EDITION_BASE_URL': 'https://example.invalid/v1'}
         settings = model_client.settings(env)
         self.assertTrue(settings['configured'])
         self.assertNotIn('thk_supersecret_value', str(settings))

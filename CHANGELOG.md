@@ -3,6 +3,20 @@
 All notable changes to Daily Edition. Versions follow the plugin manifest (`plugin.yaml`), which is
 kept in step with `dashboard/manifest.json` by a test.
 
+## 0.4.6 — 2026-11-06
+
+### Changed
+- **Styling no longer defaults to a third-party endpoint.** `DAILY_EDITION_BASE_URL` has no default:
+  the editorial voices stay off until you name an OpenAI-compatible endpoint. A public plugin must not
+  route a stranger's headlines to a vendor nobody chose, and the previous default pointed at one.
+  `settings()` now reports the missing endpoint by name; `DAILY_EDITION_MODEL` still defaults.
+
+### Fixed
+- The headless renderer is launched with background networking disabled (`--disable-background-networking`,
+  `--disable-component-update`, `--disable-sync`, `--no-pings`, no default apps or extensions) for both
+  the print and the measurement pass, so a print really does not reach the network. Found by the
+  catalog admission review, which noticed the browser could still phone home while the plugin could not.
+
 ## 0.4.5 — 2026-11-06
 
 ### Fixed

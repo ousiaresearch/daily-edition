@@ -31,6 +31,22 @@ from urllib.parse import urlsplit
 MAX_PAGES = 1
 FIT_ATTEMPTS = 4
 RENDER_TIMEOUT = 90
+
+# The sheet is a local file and the renderer must not reach the network while drawing it: a headless
+# browser will otherwise fetch component updates, sync data and phone home in the background, which
+# would make "printing sends nothing over the network" untrue of the process as a whole.
+BROWSER_FLAGS = [
+    '--disable-gpu',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-background-networking',
+    '--disable-component-update',
+    '--disable-default-apps',
+    '--disable-sync',
+    '--disable-extensions',
+    '--metrics-recording-only',
+    '--no-pings',
+]
 PRINTER_RE = re.compile(r'^[A-Za-z0-9._-]{1,64}$')
 
 URL_RE = re.compile(r'https?://\S+', re.I)
@@ -356,7 +372,7 @@ def render_pdf(html_text, out_path, html_path=''):
     html_file.write_text(html_text, encoding='utf-8')
     try:
         completed = subprocess.run(
-            [chrome, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+            [chrome, '--headless=new', *BROWSER_FLAGS,
              '--no-pdf-header-footer', '--virtual-time-budget=2000',
              '--print-to-pdf=%s' % out_path, 'file://%s' % html_file],
             capture_output=True, timeout=RENDER_TIMEOUT,
@@ -438,8 +454,7 @@ def measure_layout(html_path):
         return {'fill': 0.0, 'heights': {}, 'count': 0}
     try:
         completed = subprocess.run(
-            [chrome, '--headless=new', '--disable-gpu', '--no-first-run',
-             '--no-default-browser-check', '--hide-scrollbars', '--window-size=733,1056',
+            [chrome, '--headless=new', *BROWSER_FLAGS, '--hide-scrollbars', '--window-size=733,1056',
              '--virtual-time-budget=800', '--dump-dom', 'file://%s' % html_path],
             capture_output=True, text=True, timeout=45)
     except (OSError, subprocess.SubprocessError):
