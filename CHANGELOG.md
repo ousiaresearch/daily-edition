@@ -3,6 +3,18 @@
 All notable changes to Daily Edition. Versions follow the plugin manifest (`plugin.yaml`), which is
 kept in step with `dashboard/manifest.json` by a test.
 
+## 0.4.4 — 2026-11-06
+
+### Added
+- The release hero (`docs/images/hero.jpg`), built reproducibly from `docs/hero/prompt.txt` and
+  `docs/hero/build.py`: a generated print still life with no legible text, every word set as vector
+  type over it, with a second plate a hair off so the type reads as printed.
+- `docs/corrections.md`, recording the commit-identity rewrite and what remains visible afterwards.
+
+### Changed
+- No behaviour change. This release exists so the plugin catalog entry can pin a commit that carries
+  the card art, the corrections log and an honest install section.
+
 ## 0.4.3 — 2026-11-06
 
 ### Fixed
