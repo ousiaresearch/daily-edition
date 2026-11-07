@@ -1,6 +1,6 @@
 name: daily-edition
 label: Daily Edition
-version: "0.4.6"
+version: "0.4.7"
 kind: standalone
 author: Ousia Research
 homepage: https://github.com/ousiaresearch/daily-edition

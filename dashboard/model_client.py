@@ -36,9 +36,34 @@ def endpoint(base_url):
     return base + '/chat/completions'
 
 
+def _secret(name, env):
+    """Read a secret the way catalog rule 11 requires: through Hermes's profile secret scope first.
+
+    A bare environment read is not enough — under profile multiplexing the process environment can
+    carry another profile's value — so the scoped lookup wins, and if a scope is active but has no
+    value we fail closed rather than fall back to whatever the environment happens to hold. The
+    environment is still the path for a standalone run (tests, a direct call) where the plugin host
+    has already scrubbed it to the served profile.
+    """
+    from_env = str(env.get(name) or '').strip()
+    try:
+        from agent.secret_scope import get_secret, is_multiplex_active
+    except Exception:
+        return from_env
+    try:
+        scoped = get_secret(name)
+    except Exception:
+        scoped = None
+    if scoped:
+        return str(scoped).strip()
+    if is_multiplex_active():
+        return ''
+    return from_env
+
+
 def settings(env=None):
     env = dict(os.environ if env is None else env)
-    key = (env.get('DAILY_EDITION_API_KEY') or '').strip()
+    key = _secret('DAILY_EDITION_API_KEY', env)
     model = (env.get('DAILY_EDITION_MODEL') or DEFAULT_MODEL).strip()
     base = (env.get('DAILY_EDITION_BASE_URL') or '').strip()
     if not base:

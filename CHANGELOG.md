@@ -3,6 +3,17 @@
 All notable changes to Daily Edition. Versions follow the plugin manifest (`plugin.yaml`), which is
 kept in step with `dashboard/manifest.json` by a test.
 
+## 0.4.7 — 2026-11-06
+
+### Changed
+- **The styling key is read through Hermes, not from the environment.** `settings()` now asks
+  `agent.secret_scope.get_secret('DAILY_EDITION_API_KEY')` first and fails closed when a scope is
+  active but holds no value, because under profile multiplexing a bare `os.environ` read can pick up
+  another profile's key. This is catalog rule 11, and the previous code broke it.
+- A **2:1 hero card** (`docs/images/hero-card.png`/`.jpg`, 1600×800) for catalog listings, generated
+  from the same brief and script as the 16:9 README hero — the entry's `image:` field is specified at
+  2:1 and the 16:9 version would have been cropped.
+
 ## 0.4.6 — 2026-11-06
 
 ### Changed

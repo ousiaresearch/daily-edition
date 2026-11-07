@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import sys
 
@@ -40,6 +41,34 @@ class ModelClientTests(unittest.TestCase):
         settings = model_client.settings({'DAILY_EDITION_BASE_URL': 'https://tokenharbor.ai/v1', 'DAILY_EDITION_MODEL': 'x'})
         self.assertFalse(settings['configured'])
         self.assertIn('DAILY_EDITION_API_KEY', settings['error'])
+
+    def test_a_scoped_secret_wins_over_the_environment(self):
+        """Catalog rule 11: the profile secret scope is the route, not a bare env read."""
+        import sys, types
+        fake = types.ModuleType('agent.secret_scope')
+        fake.get_secret = lambda name, default=None: 'scoped_key' if name == 'DAILY_EDITION_API_KEY' else default
+        fake.is_multiplex_active = lambda: True
+        pkg = types.ModuleType('agent')
+        pkg.secret_scope = fake
+        with patch.dict(sys.modules, {'agent': pkg, 'agent.secret_scope': fake}):
+            state = model_client.settings({'DAILY_EDITION_API_KEY': 'env_key',
+                                           'DAILY_EDITION_BASE_URL': 'https://example.invalid/v1'})
+        self.assertTrue(state['configured'])
+        self.assertNotIn('env_key', str(state))
+
+    def test_multiplexed_without_a_scoped_secret_fails_closed(self):
+        """An env value must never be used for another profile's secret under multiplexing."""
+        import sys, types
+        fake = types.ModuleType('agent.secret_scope')
+        fake.get_secret = lambda name, default=None: default
+        fake.is_multiplex_active = lambda: True
+        pkg = types.ModuleType('agent')
+        pkg.secret_scope = fake
+        with patch.dict(sys.modules, {'agent': pkg, 'agent.secret_scope': fake}):
+            state = model_client.settings({'DAILY_EDITION_API_KEY': 'another_profiles_key',
+                                           'DAILY_EDITION_BASE_URL': 'https://example.invalid/v1'})
+        self.assertFalse(state['configured'])
+        self.assertIn('DAILY_EDITION_API_KEY', state['error'])
 
     def test_key_can_come_from_a_named_variable(self):
         env = {'DAILY_EDITION_API_KEY': 'thk_supersecret_value', 'DAILY_EDITION_MODEL': 'm',

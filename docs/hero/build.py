@@ -2,19 +2,22 @@
 """Compose the Daily Edition hero: a generated print still life plus vector typography.
 
 Route (a) of the branded-card procedure: the raster carries the argument with no legible text, and
-every word is vector type laid over it with the print's own defect echoed (a second plate landing a
+every word is vector type laid over it, with the print's own defect echoed (a second plate landing a
 hair off) so the type reads as printed rather than pasted.
 
-    python3.14 docs/hero/build.py [--background PATH] [--out PATH]
+Two canvases come out of one brief:
 
-Sources kept beside the output: `prompt.txt` (the generation brief), this script, and `hero.svg`
-(written on every run).
+    1600x900   16:9  README hero
+    1600x800    2:1  catalog card (the entry's `image:` field is specified at 2:1)
+
+    python3.14 docs/hero/build.py [--background PATH]
+
+Sources kept beside the output: `prompt.txt` (the generation brief) and this script.
 """
 
 import argparse
 import base64
 import pathlib
-import re
 import sys
 
 import resvg_py
@@ -23,14 +26,19 @@ from PIL import Image
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 
-W, H = 1600, 900
 ZOOM = 1.08
 CREAM = '#F0E7D4'
 BODY = '#E2D6BF'
-MUTED = '#BCAC94'
 VERMILION = '#C4553C'
 SERIF = "'Iowan Old Style', 'Palatino Linotype', Palatino, Baskerville, 'Times New Roman', serif"
 SANS = "'Helvetica Neue', Helvetica, Arial, sans-serif"
+
+# Vertical anchors as a fraction of the canvas height, so one composition serves both ratios.
+ANCHORS = {
+    'label': 0.218, 'rule1': 0.240, 'display1': 0.367, 'display2': 0.494,
+    'rule2': 0.547, 'phrase': 0.613, 'question': 0.664,
+    'foot1': 0.906, 'foot2': 0.945,
+}
 
 COPY = {
     'label': 'OUSIA RESEARCH',
@@ -69,13 +77,16 @@ def press(source: pathlib.Path) -> pathlib.Path:
 
 
 def esc(text: str) -> str:
-    return (text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 
-def svg(background: pathlib.Path) -> str:
-    label, name, phrase = COPY['label'], COPY['name'], COPY['phrase']
+def svg(background: pathlib.Path, width: int, height: int) -> str:
+    k = height / 900.0                      # type scales with the canvas
+    a = {name: round(f * height, 1) for name, f in ANCHORS.items()}
+    label, name_lines, phrase = COPY['label'], COPY['name'], COPY['phrase']
     question, footer = COPY['question'], COPY['footer']
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">
+    display = round(104 * k, 1)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
   <defs>
     <linearGradient id="scrim" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#120E0B" stop-opacity="0.80"/>
@@ -93,51 +104,64 @@ def svg(background: pathlib.Path) -> str:
     </filter>
   </defs>
 
-  <image href="{data_uri(background)}" x="{-(W * (ZOOM - 1) / 2) - 18:.1f}" y="{-(H * (ZOOM - 1) / 2):.1f}"
-         width="{W * ZOOM:.1f}" height="{H * ZOOM:.1f}" preserveAspectRatio="xMidYMid slice"/>
-  <rect x="0" y="0" width="{W}" height="{H}" fill="url(#scrim)"/>
-  <rect x="0" y="0" width="{W}" height="{H}" filter="url(#grain)" opacity="0.55"/>
+  <image href="{data_uri(background)}" x="{-(width * (ZOOM - 1) / 2) - 18:.1f}" y="{-(height * (ZOOM - 1) / 2):.1f}"
+         width="{width * ZOOM:.1f}" height="{height * ZOOM:.1f}" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="0" y="0" width="{width}" height="{height}" fill="url(#scrim)"/>
+  <rect x="0" y="0" width="{width}" height="{height}" filter="url(#grain)" opacity="0.55"/>
 
   <g font-family="{SANS}">
-    <text x="88" y="196" fill="#D8664A" font-size="19" letter-spacing="6.6"
+    <text x="88" y="{a['label']}" fill="#D8664A" font-size="{round(19 * k, 1)}" letter-spacing="{round(6.6 * k, 2)}"
           font-weight="500">{esc(label)}</text>
-    <rect x="88" y="216" width="224" height="1" fill="#8A7355" opacity="0.8"/>
+    <rect x="88" y="{a['rule1']}" width="{round(224 * k, 1)}" height="1" fill="#8A7355" opacity="0.8"/>
   </g>
 
   <!-- the second plate: the same words in vermilion, a hair off, as a second print pass -->
-  <g font-family="{SERIF}" font-size="104" fill="{VERMILION}" opacity="0.22" filter="url(#soften)">
-    <text x="91" y="333">{esc(name[0])}</text>
-    <text x="91" y="448">{esc(name[1])}</text>
+  <g font-family="{SERIF}" font-size="{display}" fill="{VERMILION}" opacity="0.22" filter="url(#soften)">
+    <text x="91" y="{round(a['display1'] - 3 * k, 1)}">{esc(name_lines[0])}</text>
+    <text x="91" y="{round(a['display2'] - 3 * k, 1)}">{esc(name_lines[1])}</text>
   </g>
-  <g font-family="{SERIF}" font-size="104" fill="{CREAM}" letter-spacing="-1">
-    <text x="88" y="330">{esc(name[0])}</text>
-    <text x="88" y="445">{esc(name[1])}</text>
-  </g>
-
-  <rect x="88" y="492" width="520" height="1" fill="#5A4A36" opacity="0.9"/>
-
-  <g font-family="{SERIF}" font-size="33" font-style="italic" fill="{BODY}">
-    <text x="88" y="552">{esc(phrase)}</text>
-  </g>
-  <g font-family="{SANS}" font-size="23" fill="#CBBEA6" letter-spacing="0.4">
-    <text x="88" y="598">{esc(question)}</text>
+  <g font-family="{SERIF}" font-size="{display}" fill="{CREAM}" letter-spacing="-1">
+    <text x="88" y="{a['display1']}">{esc(name_lines[0])}</text>
+    <text x="88" y="{a['display2']}">{esc(name_lines[1])}</text>
   </g>
 
-  <g font-family="{SANS}" fill="#C4B49B" letter-spacing="2.8">
-    <text x="88" y="818" font-size="18">{esc(footer[0])}</text>
-    <text x="88" y="852" letter-spacing="0.5" font-size="21" fill="#D2C2A8">{esc(footer[1])}</text>
+  <rect x="88" y="{a['rule2']}" width="{round(520 * k, 1)}" height="1" fill="#5A4A36" opacity="0.9"/>
+
+  <g font-family="{SERIF}" font-size="{round(33 * k, 1)}" font-style="italic" fill="{BODY}">
+    <text x="88" y="{a['phrase']}">{esc(phrase)}</text>
+  </g>
+  <g font-family="{SANS}" font-size="{round(23 * k, 1)}" fill="#CBBEA6" letter-spacing="0.4">
+    <text x="88" y="{a['question']}">{esc(question)}</text>
+  </g>
+
+  <g font-family="{SANS}" fill="#C4B49B" letter-spacing="{round(2.8 * k, 2)}">
+    <text x="88" y="{a['foot1']}" font-size="{round(18 * k, 1)}">{esc(footer[0])}</text>
+    <text x="88" y="{a['foot2']}" letter-spacing="0.5" font-size="{round(21 * k, 1)}" fill="#D2C2A8">{esc(footer[1])}</text>
   </g>
 
   <!-- one grain field over everything, so the vector type shares the print's surface -->
-  <rect x="0" y="0" width="{W}" height="{H}" filter="url(#grain)" opacity="0.16"/>
+  <rect x="0" y="0" width="{width}" height="{height}" filter="url(#grain)" opacity="0.16"/>
 </svg>
 """
+
+
+def render(background: pathlib.Path, out: pathlib.Path, width: int, height: int) -> None:
+    source = svg(background, width, height)
+    png = bytes(resvg_py.svg_to_bytes(svg_string=source, width=width, height=height))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(png)
+    jpg = out.with_suffix('.jpg')
+    Image.open(out).convert('RGB').save(jpg, quality=93, optimize=True, progressive=True)
+    proof = out.with_name(out.stem + '-feed.png')
+    Image.open(out).convert('RGB').resize(
+        (width // 2, height // 2), Image.Resampling.LANCZOS).save(proof)
+    print(f'{out.name} ({len(png) // 1024} KiB, {width}x{height}) · {jpg.name} '
+          f'({jpg.stat().st_size // 1024} KiB) · {proof.name}')
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--background', default=str(HERE / 'background-v1.png'))
-    parser.add_argument('--out', default=str(REPO / 'docs' / 'images' / 'hero.png'))
     args = parser.parse_args()
 
     background = pathlib.Path(args.background)
@@ -146,23 +170,9 @@ def main() -> int:
         return 1
     background = press(background)
 
-    source = svg(background).encode('utf-8')
-    (HERE / 'hero.svg').write_bytes(source)
-    png = bytes(resvg_py.svg_to_bytes(svg_string=source.decode('utf-8'), width=W, height=H))
-    out = pathlib.Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_bytes(png)
-
-    # a lighter copy for the README; the PNG stays the master
-    jpg = out.with_suffix('.jpg')
-    Image.open(out).convert('RGB').save(jpg, quality=93, optimize=True, progressive=True)
-
-    # feed-scale proof: what the card actually looks like in a timeline
-    proof = out.with_name(out.stem + '-feed.png')
-    Image.open(out).convert('RGB').resize((800, 450), Image.Resampling.LANCZOS).save(proof)
-    print(f'{out} ({len(png) // 1024} KiB, {W}x{H})')
-    print(f'{jpg} ({jpg.stat().st_size // 1024} KiB)')
-    print(f'{proof} (800x450 feed proof)')
+    images = REPO / 'docs' / 'images'
+    render(background, images / 'hero.png', 1600, 900)        # README hero, 16:9
+    render(background, images / 'hero-card.png', 1600, 800)   # catalog card, 2:1
     return 0
 
 
