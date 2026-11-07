@@ -2,3 +2,8 @@ __pycache__/
 *.py[cod]
 .DS_Store
 node_modules/
+
+# hero build intermediates
+docs/hero/out/
+docs/hero/hero.svg
+docs/hero/*-pressed.png

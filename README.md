@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/ousiaresearch/daily-edition/actions/workflows/ci.yml/badge.svg)](https://github.com/ousiaresearch/daily-edition/actions/workflows/ci.yml)
 
-![The printed front page](docs/images/edition-page.png)
+![One finished page, and the day's papers that went into it](docs/images/hero.jpg)
 
 A personal newspaper inside Hermes Desktop. **You give it interests, not subscriptions**: name what you care about — a subject, a place, an institution — and it compiles a dated edition with a lead story, one section per interest, cross-source consensus and a shelf of back issues. Stories open and read **inside the paper**; the publisher's page is always one click away. There are no accounts, tracking, or default feeds.
 
@@ -73,6 +73,8 @@ The same paper is available to the agent, composed by the same model in Python (
 The page mirrors its settings to `$HERMES_HOME/daily-edition/state.json` (0600, atomic replace) so the tool can see them: interests, feeds, mutes, watchwords, the chosen voice and past-edition headlines and links — never article bodies. The JS and Python edition models are held together by a parity test that runs both against shared fixtures.
 
 ## On paper
+
+![A composed edition printed to one Letter page](docs/images/edition-page.png)
 
 The **Print the paper** button turns the edition into a sheet of paper: the same stories, set as a
 broadsheet — a ruled nameplate, a dateline, a lead story with deck, three columns with column rules,
