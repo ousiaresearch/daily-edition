@@ -71,9 +71,16 @@ def _load(filename, module_name):
     return module
 
 
+def subprocess_env():
+    """Allow only OS settings needed by the browser and local CUPS tools, never credentials."""
+    allowed = ('HOME', 'PATH', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'LC_CTYPE',
+               'DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR', 'SYSTEMROOT', 'USERPROFILE')
+    return {name: os.environ[name] for name in allowed if name in os.environ}
+
+
 def outputs_dir():
     state = _load('state.py', 'daily_edition_state_print')
-    path = state.home() / 'daily-edition' / 'prints'
+    path = state.home() / 'plugin-data' / 'daily-edition' / 'prints'
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -375,7 +382,7 @@ def render_pdf(html_text, out_path, html_path=''):
             [chrome, '--headless=new', *BROWSER_FLAGS,
              '--no-pdf-header-footer', '--virtual-time-budget=2000',
              '--print-to-pdf=%s' % out_path, 'file://%s' % html_file],
-            capture_output=True, timeout=RENDER_TIMEOUT,
+            capture_output=True, timeout=RENDER_TIMEOUT, env=subprocess_env(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return '', 'browser failed: %s' % exc
@@ -410,7 +417,7 @@ def available_printers():
     if not lpstat:
         return []
     try:
-        completed = subprocess.run([lpstat, '-p'], capture_output=True, timeout=15, text=True)
+        completed = subprocess.run([lpstat, '-p'], capture_output=True, timeout=15, text=True, env=subprocess_env())
     except (OSError, subprocess.SubprocessError):
         return []
     return re.findall(r'^printer\s+(\S+)', completed.stdout or '', flags=re.M)
@@ -433,7 +440,7 @@ def submit(path, printer=''):
         return '', 'No printer is configured on this machine'
     command = [lp] + (['-d', printer] if printer else []) + [str(path)]
     try:
-        completed = subprocess.run(command, capture_output=True, timeout=30, text=True)
+        completed = subprocess.run(command, capture_output=True, timeout=30, text=True, env=subprocess_env())
     except (OSError, subprocess.SubprocessError) as exc:
         return '', 'lp failed: %s' % exc
     if completed.returncode != 0:
@@ -456,7 +463,7 @@ def measure_layout(html_path):
         completed = subprocess.run(
             [chrome, '--headless=new', *BROWSER_FLAGS, '--hide-scrollbars', '--window-size=733,1056',
              '--virtual-time-budget=800', '--dump-dom', 'file://%s' % html_path],
-            capture_output=True, text=True, timeout=45)
+            capture_output=True, text=True, timeout=45, env=subprocess_env())
     except (OSError, subprocess.SubprocessError):
         return {'fill': 0.0, 'heights': {}, 'count': 0}
     dom = completed.stdout or ''

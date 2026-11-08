@@ -22,6 +22,10 @@ class FakeContext:
     def __init__(self):
         self.tools = []
         self.commands = []
+        self.skills = []
+
+    def register_skill(self, name, path, *args):
+        self.skills.append((name, Path(path)))
 
     def register_tool(self, **kwargs):
         self.tools.append(kwargs)
@@ -44,6 +48,10 @@ class EntryTests(unittest.TestCase):
     def test_registers_exactly_one_tool_and_one_command(self):
         self.assertEqual([tool['name'] for tool in self.ctx.tools], ['daily_edition'])
         self.assertEqual([command['name'] for command in self.ctx.commands], ['edition'])
+
+    def test_registers_bundled_skill(self):
+        self.assertEqual(self.ctx.skills, [('daily-edition', ROOT / 'skills' / 'daily-edition' / 'SKILL.md')])
+        self.assertTrue(self.ctx.skills[0][1].is_file())
 
     def test_tool_schema_is_a_valid_object_schema(self):
         schema = self.ctx.tools[0]['schema']

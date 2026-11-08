@@ -122,6 +122,24 @@ class SubmitTests(unittest.TestCase):
         patcher = patch.object(press.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name)
         patcher.start()
         self.addCleanup(patcher.stop)
+    def test_subprocesses_do_not_inherit_credentials(self):
+        calls = []
+        def run(argv, **kwargs):
+            calls.append(kwargs)
+            return Completed('printer Office is idle\nrequest id is Office-1')
+        with patch.dict(os.environ, {'DAILY_EDITION_API_KEY': 'sensitive_value'}), \
+             patch.object(press.subprocess, 'run', side_effect=run), \
+             patch.object(press, 'chrome_path', return_value='/usr/bin/chrome'):
+            press.available_printers()
+            press.submit('/tmp/test.pdf', 'Office')
+            press.measure_layout('/tmp/test.html')
+            with tempfile.TemporaryDirectory() as tmp:
+                press.render_pdf('<p>x</p>', str(pathlib.Path(tmp) / 'x.pdf'))
+        self.assertGreaterEqual(len(calls), 4)
+        for call in calls:
+            self.assertIn('env', call)
+            self.assertNotIn('DAILY_EDITION_API_KEY', call['env'])
+
     def test_refuses_a_printer_name_that_could_be_shell_input(self):
         job, error = press.submit('/tmp/x.pdf', 'office; rm -rf /')
         self.assertEqual(job, '')

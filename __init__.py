@@ -207,6 +207,8 @@ def _command(raw_args):
 
 def register(ctx):
     """One tool and one command: the paper is readable from chat and from cron, not only the page."""
+    ctx.register_skill('daily-edition', ROOT / 'skills' / 'daily-edition' / 'SKILL.md',
+                       'Set up a morning Daily Edition print with cron, and read the paper from chat.')
     ctx.register_tool(
         name=SCHEMA['name'], toolset=TOOLSET, schema=SCHEMA, handler=_tool,
         description='Print the reader’s dated Daily Edition from their saved interests and feeds',

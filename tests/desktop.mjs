@@ -11,14 +11,16 @@ code = code.replace(/^import\s[^\n]*\n/gm, '')
 const jsx = (type, props) => (typeof type === 'function' ? type(props) : { type, props });
 const useState = v => [typeof v === 'function' ? v() : v, () => {}];
 const useEffect = () => {};
+const navigations = [];
+const host = { navigate: path => navigations.push(path) };
 const ROUTES_AREA = 'routes', SIDEBAR_NAV_AREA = 'sidebar.nav', PALETTE_AREA = 'palette';
 
 // A fresh module instance per test, so two different storage states do not share closures.
 function makePlugin() {
   return new Function(
-    'jsx', 'useState', 'useEffect', 'ROUTES_AREA', 'SIDEBAR_NAV_AREA', 'PALETTE_AREA',
+    'host', 'jsx', 'useState', 'useEffect', 'ROUTES_AREA', 'SIDEBAR_NAV_AREA', 'PALETTE_AREA',
     'buildEdition', 'editionSummary', 'mergeArchive', 'localIso', code
-  )(jsx, useState, useEffect, ROUTES_AREA, SIDEBAR_NAV_AREA, PALETTE_AREA, buildEdition, editionSummary, mergeArchive, localIso);
+  )(host, jsx, useState, useEffect, ROUTES_AREA, SIDEBAR_NAV_AREA, PALETTE_AREA, buildEdition, editionSummary, mergeArchive, localIso);
 }
 
 const EMPTY_STORAGE = { get: (key, fallback) => (key === 'lastEdition' ? null : fallback), set: () => {} };
@@ -43,6 +45,8 @@ assert.equal(registrations[1].data.label, 'Daily Edition');
 assert.equal(registrations[2].area, 'statusBar.right');
 assert.equal(registrations[3].area, PALETTE_AREA);
 assert.equal(typeof registrations[3].data.run, 'function');
+registrations[3].data.run();
+assert.deepEqual(navigations, ['/daily-edition']);
 assert.equal(typeof registrations[3].data.detail(), 'string');
 assert.equal(empty.page.type, 'main');
 const rendered = JSON.stringify(empty.page);

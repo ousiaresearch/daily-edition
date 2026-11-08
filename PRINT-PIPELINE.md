@@ -63,7 +63,7 @@ Rules the renderer enforces, whatever the caller passes:
 
 ## 3. Artifacts and response
 
-Every render leaves three files under `$HERMES_HOME/daily-edition/prints/`:
+Every render leaves three files under `$HERMES_HOME/plugin-data/daily-edition/prints/`:
 
 | File | Purpose |
 |---|---|
@@ -102,7 +102,7 @@ printer can print the file themselves.
 - Printer names match `^[A-Za-z0-9._-]{1,64}$` before they reach `lp`.
 - The browser runs on a `file://` URL under the profile's own prints directory, with a timeout.
 - Output paths are built from the edition number and a timestamp — no user-supplied path segment.
-- The pipeline writes only under `$HERMES_HOME/daily-edition/prints/`.
+- The pipeline writes only under `$HERMES_HOME/plugin-data/daily-edition/prints/`.
 
 ## 6. Adopting it from another plugin
 

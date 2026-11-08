@@ -1,7 +1,7 @@
 """Minimal OpenAI-compatible client for persona rewrites.
 
-Configuration is read from the environment only — never from a file, another tool's login, or a
-secret store. If no key is configured the plugin stays offline and the paper prints in the
+Configuration comes from Hermes's profile scope, or the process environment in standalone runs.
+If no key is configured the plugin stays offline and the paper prints in the
 publisher's own words; nothing is silently faked.
 """
 
@@ -37,35 +37,32 @@ def endpoint(base_url):
 
 
 def _secret(name, env):
-    """Read a secret the way catalog rule 11 requires: through Hermes's profile secret scope first.
+    """Resolve a profile-scoped configuration value without cross-profile fallback.
 
-    A bare environment read is not enough — under profile multiplexing the process environment can
-    carry another profile's value — so the scoped lookup wins, and if a scope is active but has no
-    value we fail closed rather than fall back to whatever the environment happens to hold. The
-    environment is still the path for a standalone run (tests, a direct call) where the plugin host
-    has already scrubbed it to the served profile.
+    Hermes treats scope misses differently for routed and single-profile tasks. Use its routed
+    predicate (which also covers foreign-home scopes outside multiplex mode) before any fallback.
     """
     from_env = str(env.get(name) or '').strip()
     try:
-        from agent.secret_scope import get_secret, is_multiplex_active
+        from agent.secret_scope import get_secret, serves_routed_profile
+    except ModuleNotFoundError as exc:
+        return from_env if exc.name in ('agent', 'agent.secret_scope') else ''
     except Exception:
-        return from_env
+        return ''
     try:
         scoped = get_secret(name)
+        if scoped is not None:
+            return str(scoped).strip()
+        return '' if serves_routed_profile() else from_env
     except Exception:
-        scoped = None
-    if scoped:
-        return str(scoped).strip()
-    if is_multiplex_active():
         return ''
-    return from_env
 
 
 def settings(env=None):
     env = dict(os.environ if env is None else env)
     key = _secret('DAILY_EDITION_API_KEY', env)
-    model = (env.get('DAILY_EDITION_MODEL') or DEFAULT_MODEL).strip()
-    base = (env.get('DAILY_EDITION_BASE_URL') or '').strip()
+    model = _secret('DAILY_EDITION_MODEL', env) or DEFAULT_MODEL
+    base = _secret('DAILY_EDITION_BASE_URL', env)
     if not base:
         return {'configured': False, 'model': model,
                 'error': 'No model endpoint configured. Set DAILY_EDITION_BASE_URL for the gateway.'}
@@ -96,10 +93,32 @@ def build_request(messages, base_url=DEFAULT_BASE, model=DEFAULT_MODEL, api_key=
 
 def chat(messages, config=None):
     config = config or settings()
+    try:
+        from agent.secret_scope import serves_routed_profile
+    except ModuleNotFoundError as exc:
+        if exc.name not in ('agent', 'agent.secret_scope'):
+            fail('Unable to verify model profile scope')
+        routed = False
+    except Exception:
+        fail('Unable to verify model profile scope')
+    else:
+        try:
+            routed = serves_routed_profile()
+        except Exception:
+            fail('Unable to verify model profile scope')
+    if routed:
+        current = settings()
+        if not current.get('configured'):
+            fail(current.get('error') or 'Model not configured')
+        if config.get('url') != current['url'] or config.get('model') != current['model']:
+            fail('Model configuration no longer matches the current profile')
     if not config.get('configured'):
         fail(config.get('error') or 'Model not configured')
+    key = _secret('DAILY_EDITION_API_KEY', os.environ)
+    if not key:
+        fail('No model key configured. Set DAILY_EDITION_API_KEY for the gateway.')
     payload = build_request(messages, base_url=config['url'].rsplit('/chat/completions', 1)[0],
-                            model=config['model'], api_key=_key())
+                            model=config['model'], api_key=key)
     request = urllib.request.Request(
         payload['url'], data=json.dumps(payload['body']).encode('utf-8'),
         headers=payload['headers'], method='POST')
@@ -109,12 +128,8 @@ def chat(messages, config=None):
     except urllib.error.HTTPError as exc:
         fail('Model endpoint returned HTTP %s' % exc.code)
     except Exception as exc:
-        fail('Model request failed: %s' % exc)
+        fail('Model request failed: %s' % exc, key=key)
     try:
         return data['choices'][0]['message']['content']
     except Exception:
         fail('Model endpoint returned an unexpected body')
-
-
-def _key():
-    return os.environ.get('DAILY_EDITION_API_KEY', '')

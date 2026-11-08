@@ -23,7 +23,7 @@ printing the paper on a schedule, and answering questions about it in conversati
   since the last edition; `action: "print"` returns the whole front page.
 - `/edition` prints, `/edition diff` gives the standfirst, `/edition sources` lists subscriptions.
 - **The reader's interests and feeds live in the Desktop page's storage.** The page mirrors them to
-  `$HERMES_HOME/daily-edition/state.json` whenever they change. If the tool reports no interests,
+  `$HERMES_HOME/plugin-data/daily-edition/state.json` whenever they change. If the tool reports no interests,
   the page has never been opened on that profile — do not invent interests, ask the user to open
   Daily Edition once (or pass `interests` explicitly for a one-off).
 - No key, no model, and no background polling are involved. Each call fetches every source live,
@@ -38,7 +38,7 @@ hermes cron create "0 7 * * 1-5" \
   "Print my Daily Edition: call the daily_edition tool with action=print, then give me the front page — lead first, then the sections, and say how many stories were withheld as already printed. If it returns errors for some sources, name them in one line." \
   --name "Daily Edition — weekday print" \
   --deliver origin \
-  --skill daily-edition \
+  --skill daily-edition:daily-edition \
   --pin
 ```
 
@@ -59,7 +59,7 @@ when the user has not printed before.
 - The pipeline is described in `PRINT-PIPELINE.md` in the plugin directory: HTML → headless browser →
   PDF → `lp`, with the last stories dropped until the page fits.
 - A printer problem is reported, never fatal: the page is still left in
-  `$HERMES_HOME/daily-edition/prints/` as HTML, PDF and text.
+  `$HERMES_HOME/plugin-data/daily-edition/prints/` as HTML, PDF and text.
 - `lpstat -p` must list a queue. If it lists none, say so and point at the files rather than
   pretending a job was sent.
 - Colour, images and QR codes are deliberately out of scope; it is a reading copy.
@@ -71,7 +71,7 @@ hermes cron create "0 7 * * 1-5" \
   "Print today's Daily Edition on paper: call the daily_edition tool with action=print_paper. If it reports a printer error, say which printer is missing and where the PDF was left." \
   --name "Daily Edition — weekday print" \
   --deliver local \
-  --skill daily-edition \
+  --skill daily-edition:daily-edition \
   --pin
 ```
 

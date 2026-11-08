@@ -68,9 +68,9 @@ The same paper is available to the agent, composed by the same model in Python (
 
 - **Tool:** `daily_edition` — `action: print` returns the front page as text; `action: diff` returns only what changed; `action: sources` lists the subscriptions; `action: print_paper` renders the same edition as a one-page PDF and sends it to a printer (with `dry_run: true` for a preview). Optional `interests` and `max_stories` override the saved settings for that call only.
 - **Command:** `/edition`, `/edition diff`, `/edition sources`, `/edition paper`, `/edition preview`.
-- **Ritual:** the bundled `daily-edition` skill carries the tested `hermes cron create` line for a 07:00 weekday print delivered to chat, plus the failure modes worth naming.
+- **Ritual:** the bundled `daily-edition:daily-edition` skill carries the tested `hermes cron create` line for a 07:00 weekday print delivered to chat, plus the failure modes worth naming.
 
-The page mirrors its settings to `$HERMES_HOME/daily-edition/state.json` (0600, atomic replace) so the tool can see them: interests, feeds, mutes, watchwords, the chosen voice and past-edition headlines and links — never article bodies. The JS and Python edition models are held together by a parity test that runs both against shared fixtures.
+Legacy settings are read from the former `$HERMES_HOME/daily-edition/state.json` until the first new write; old print artifacts remain in place. The page mirrors its settings to `$HERMES_HOME/plugin-data/daily-edition/state.json` (0600, atomic replace) so the tool can see them: interests, feeds, mutes, watchwords, the chosen voice and past-edition headlines and links — never article bodies. The JS and Python edition models are held together by a parity test that runs both against shared fixtures.
 
 ## On paper
 
@@ -95,7 +95,7 @@ The sheet is typeset, not dumped:
 - **The columns end level.** Stories flow across the three columns with their headlines protected
   from splitting, so the copy balances itself and the bottoms meet at one rule instead of leaving a
   ragged hole at the foot of the page.
-- **No printer is not a dead end.** The page is always left in `$HERMES_HOME/daily-edition/prints/`
+- **No printer is not a dead end.** The page is always left in `$HERMES_HOME/plugin-data/daily-edition/prints/`
   as HTML, PDF (when a headless browser is installed) and plain text, so it can be printed by hand.
 - **Nothing is fetched to print.** The renderer draws only the edition it is given, escapes every
   headline, and never follows a link.
@@ -122,7 +122,7 @@ Guarantees, enforced in `dashboard/personas.py`:
 - The publisher's original headline is **always printed beneath** the styled one, prefixed `Filed: “...”`, and the page states which model wrote the styled lines.
 - A persona never blocks the paper: if the model is unconfigured, rate-limited or unreachable, the edition still prints and the reason is shown on the page.
 
-Configuring it (granted to the **gateway** process, not this plugin; the plugin reads no files and no secret store):
+Configuring it (granted to the **gateway** process, not this plugin; the plugin reads no files and no secret store). Hermes resolves all three values through the current profile's scope. In a multiplexed or routed profile, set the endpoint and any custom model in that profile's scope along with the key; missing values never fall back to another profile's process environment. In standalone runs, environment configuration still works:
 
 | Variable | Meaning |
 |---|---|
@@ -134,7 +134,7 @@ Configuring it (granted to the **gateway** process, not this plugin; the plugin 
 
 ## Privacy, network and security
 
-The gateway directly requests each chosen feed, each interest's query, and each article you open, which exposes your IP address to that publisher or provider. It sends no credentials or cookies. No telemetry is sent. Interest phrases, feed URLs, read and saved state can reveal personal interests; they are saved in desktop plugin storage, and interests/feeds also in the profile's `daily-edition/state.json`. Do not put credentials in URLs. Headline clicks open the supplied HTTP(S) URL in your browser; publishers control their links and their pages, so inspect sources you trust. Story text and article text are rendered as text, not executable HTML.
+The gateway directly requests each chosen feed, each interest's query, and each article you open, which exposes your IP address to that publisher or provider. It sends no credentials or cookies. No telemetry is sent. Interest phrases, feed URLs, read and saved state can reveal personal interests; they are saved in desktop plugin storage, and interests/feeds also in the profile's `plugin-data/daily-edition/state.json`. Do not put credentials in URLs. Headline clicks open the supplied HTTP(S) URL in your browser; publishers control their links and their pages, so inspect sources you trust. Story text and article text are rendered as text, not executable HTML.
 
 To reduce server-side request forgery, the gateway refuses non-HTTP(S), credentials, fragments, nonstandard ports, and DNS results that contain non-global addresses. It connects to the vetted address rather than resolving the hostname a second time and verifies HTTPS certificates against the original hostname. **Redirects are followed up to three hops, each hop re-vetted by the same rules** — a redirect to a loopback or metadata address is refused, not followed. Requests time out after 12 seconds and responses are limited to 2 MB. DTDs, XML entities and UTF-16 XML are rejected. These restrictions may exclude legitimate feeds. No security control is a substitute for trusting your selected feeds or protecting the gateway's API.
 

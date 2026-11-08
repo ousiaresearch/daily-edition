@@ -1,4 +1,4 @@
-import { PALETTE_AREA, ROUTES_AREA, SIDEBAR_NAV_AREA } from '@hermes/plugin-sdk'
+import { host, PALETTE_AREA, ROUTES_AREA, SIDEBAR_NAV_AREA } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 import { jsx } from 'react/jsx-runtime'
 import { buildEdition, editionDiff, editionSummary, localIso, mergeArchive } from './edition.js'
@@ -684,7 +684,7 @@ function EditionChip({ ctx }) {
   if (!label) return null
   return el('button', {
     type: 'button', title: 'Open today\u2019s Daily Edition',
-    onClick: () => { window.location.hash = '#/daily-edition' },
+    onClick: () => { host.navigate(ROUTE) },
     style: { ...button, fontSize: 11, padding: '2px 8px', border: 0, ...muted }
   }, '\u25A4 ' + label)
 }
@@ -710,7 +710,7 @@ export default {
             const latest = (ctx.storage.get('archive', []) || [])[0]
             return latest ? `No. ${latest.number} · ${latest.storyCount} stories` : 'no edition yet'
           },
-          run: () => { window.location.hash = '#/daily-edition' }
+          run: () => { host.navigate(ROUTE) }
         }
       }
     ])

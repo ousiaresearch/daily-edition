@@ -16,6 +16,22 @@ class StateTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    def test_context_local_hermes_home_takes_precedence(self):
+        import sys, types
+        constants = types.ModuleType('hermes_constants')
+        constants.get_hermes_home = lambda: Path(self.tmp.name) / 'scoped'
+        with patch.dict(sys.modules, {'hermes_constants': constants}):
+            self.assertEqual(state.state_path(), Path(self.tmp.name) / 'scoped' / 'plugin-data' / 'daily-edition' / 'state.json')
+
+    def test_legacy_state_is_preserved_until_new_state_is_written(self):
+        legacy = Path(self.tmp.name) / 'daily-edition' / 'state.json'
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text('{"interests": ["legacy"]}')
+        self.assertEqual(state.read()['interests'], ['legacy'])
+        state.write({'persona': 'juno'})
+        self.assertEqual(state.read()['interests'], ['legacy'])
+        self.assertTrue((Path(self.tmp.name) / 'plugin-data' / 'daily-edition' / 'state.json').exists())
+
     def test_defaults_when_nothing_is_saved(self):
         current = state.read()
         self.assertEqual(current['interests'], [])
@@ -50,13 +66,13 @@ class StateTests(unittest.TestCase):
 
     def test_file_is_private_and_valid_json(self):
         state.write({'interests': ['climate']})
-        path = Path(self.tmp.name) / 'daily-edition' / 'state.json'
+        path = Path(self.tmp.name) / 'plugin-data' / 'daily-edition' / 'state.json'
         self.assertTrue(path.exists())
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertEqual(json.loads(path.read_text())['interests'], ['climate'])
 
     def test_corrupt_file_falls_back_to_defaults(self):
-        path = Path(self.tmp.name) / 'daily-edition' / 'state.json'
+        path = Path(self.tmp.name) / 'plugin-data' / 'daily-edition' / 'state.json'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('{not json')
         self.assertEqual(state.read()['interests'], [])

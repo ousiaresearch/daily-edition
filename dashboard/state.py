@@ -4,7 +4,7 @@
 renderer can read. A tool, a slash command and a cron job run in the gateway, so the page mirrors
 its settings here through `POST /state`, and the agent side reads them back. One file per profile:
 
-    $HERMES_HOME/daily-edition/state.json
+    $HERMES_HOME/plugin-data/daily-edition/state.json
 
 Contents are interests, feed URLs, mutes, watchwords, the chosen voice and the summaries of past
 editions (headlines and links only — never article bodies). The file is written 0600 and replaced
@@ -32,11 +32,15 @@ DEFAULTS = {
 
 
 def home():
-    return pathlib.Path(os.environ.get('HERMES_HOME') or (pathlib.Path.home() / '.hermes'))
+    try:
+        from hermes_constants import get_hermes_home
+    except ImportError:
+        return pathlib.Path(os.environ.get('HERMES_HOME') or (pathlib.Path.home() / '.hermes'))
+    return pathlib.Path(get_hermes_home())
 
 
 def state_path():
-    return home() / 'daily-edition' / 'state.json'
+    return home() / 'plugin-data' / 'daily-edition' / 'state.json'
 
 
 def _clean_list(value, limit):
@@ -79,6 +83,8 @@ def normalise(patch):
 def read():
     """The saved settings, or the defaults when nothing has been saved yet."""
     path = state_path()
+    if not path.exists():
+        path = home() / 'daily-edition' / 'state.json'
     try:
         stored = json.loads(path.read_text('utf-8'))
         if not isinstance(stored, dict):

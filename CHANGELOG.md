@@ -3,6 +3,13 @@
 All notable changes to Daily Edition. Versions follow the plugin manifest (`plugin.yaml`), which is
 kept in step with `dashboard/manifest.json` by a test.
 
+## 0.4.8 — 2026-11-07
+
+- Send the profile-scoped model credential, failing closed if absent.
+- Register the bundled skill; use SDK navigation for the chip and palette.
+- Store state and print artifacts under profile `plugin-data/daily-edition`; read legacy state on upgrade.
+- Restrict browser and CUPS subprocess environments to OS settings.
+
 ## 0.4.7 — 2026-11-06
 
 ### Changed
